@@ -145,10 +145,16 @@ struct Vertex {
 };
 
 const std::vector<Vertex> vertices = {
-    {{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
-    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
 };
+
+const std::vector<uint16_t> indices = {
+    0, 1, 2, 2, 3, 0
+};
+
 
 //language=GLSL
 auto fragmentShader = R"(
@@ -202,8 +208,11 @@ class HelloTriangleApplication {
     VkCommandPool graphicsCommandPool = VK_NULL_HANDLE;
     VkCommandPool transferCommandPool = VK_NULL_HANDLE;
     std::vector<VkCommandBuffer> commandBuffers;
+
     VkBuffer vertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
+    VkBuffer indexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory indexBufferMemory = VK_NULL_HANDLE;
 
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
@@ -249,6 +258,7 @@ private:
         createFramebuffers();
         createCommandPools();
         createVertexBuffer();
+        createIndexBuffer();
         createCommandBuffers();
         createSyncObjects();
     }
@@ -258,14 +268,23 @@ private:
         const VkBufferUsageFlags usage,
         const VkMemoryPropertyFlags properties,
         VkBuffer &buffer,
-        VkDeviceMemory &bufferMemory
+        VkDeviceMemory &bufferMemory,
+        const std::vector<uint32_t> &queueFamilyIndices
     ) {
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferInfo.size = size;
         bufferInfo.usage = usage;
-        bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
-        // bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        if (!queueFamilyIndices.empty() && queueFamilyIndices.size() > 1) {
+            bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+            bufferInfo.queueFamilyIndexCount = queueFamilyIndices.size();
+            bufferInfo.pQueueFamilyIndices = queueFamilyIndices.data();
+        } else {
+            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            bufferInfo.queueFamilyIndexCount = 0;
+            bufferInfo.pQueueFamilyIndices = nullptr;
+        }
 
         if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to create buffer!");
@@ -286,17 +305,68 @@ private:
         vkBindBufferMemory(device, buffer, bufferMemory, 0);
     }
 
-    void createVertexBuffer() {
-        const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-
+    void createIndexBuffer() {
+        VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
+
+        std::vector<uint32_t> stagingFamilies;
+
+        auto familyIndices = findQueueFamilies(physicalDevice);
+        if (familyIndices.transferFamily.has_value()) stagingFamilies.push_back(familyIndices.transferFamily.value());
+
         createBuffer(
             bufferSize,
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             stagingBuffer,
-            stagingBufferMemory
+            stagingBufferMemory,
+            stagingFamilies
+        );
+
+        void *data;
+        vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+        memcpy(data, indices.data(), (size_t) bufferSize);
+        vkUnmapMemory(device, stagingBufferMemory);
+
+        std::vector<uint32_t> deviceFamilies;
+        if (familyIndices.graphicsFamily.has_value()) deviceFamilies.push_back(familyIndices.graphicsFamily.value());
+        if (familyIndices.transferFamily.has_value() && familyIndices.transferFamily.value() != familyIndices.
+            graphicsFamily.value())
+            deviceFamilies.push_back(familyIndices.transferFamily.value());
+
+        createBuffer(
+            bufferSize,
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            indexBuffer,
+            indexBufferMemory,
+            deviceFamilies
+        );
+
+        copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+    }
+
+    void createVertexBuffer() {
+        const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        std::vector<uint32_t> stagingFamilies;
+
+        auto indices = findQueueFamilies(physicalDevice);
+        if (indices.transferFamily.has_value()) stagingFamilies.push_back(indices.transferFamily.value());
+
+        createBuffer(
+            bufferSize,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            stagingBuffer,
+            stagingBufferMemory,
+            stagingFamilies
         );
 
         void *data;
@@ -304,12 +374,19 @@ private:
         memcpy(data, vertices.data(), bufferSize);
         vkUnmapMemory(device, stagingBufferMemory);
 
+        std::vector<uint32_t> deviceFamilies;
+        if (indices.graphicsFamily.has_value()) deviceFamilies.push_back(indices.graphicsFamily.value());
+        if (indices.transferFamily.has_value() && indices.transferFamily.value() != indices.graphicsFamily.value())
+            deviceFamilies.push_back(indices.transferFamily.value());
+
+
         createBuffer(
             bufferSize,
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             vertexBuffer,
-            vertexBufferMemory
+            vertexBufferMemory,
+            deviceFamilies
         );
 
         copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
@@ -401,7 +478,10 @@ private:
         }
     }
 
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+    void recordCommandBuffer(
+        const VkCommandBuffer &commandBuffer,
+        const uint32_t imageIndex
+    ) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = 0;
@@ -418,7 +498,7 @@ private:
         renderPassInfo.renderArea.offset = {0, 0};
         renderPassInfo.renderArea.extent = swapChainExtent;
 
-        VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+        constexpr VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
         renderPassInfo.clearValueCount = 1;
         renderPassInfo.pClearValues = &clearColor;
 
@@ -442,9 +522,11 @@ private:
 
         const VkBuffer vertexBuffers[] = {vertexBuffer};
         constexpr VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-        vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+        vkCmdDrawIndexed(commandBuffer, indices.size(), 1, 0, 0, 0);
 
         vkCmdEndRenderPass(commandBuffer);
 
@@ -1237,6 +1319,9 @@ private:
 
         vkDestroyBuffer(device, vertexBuffer, nullptr);
         vkFreeMemory(device, vertexBufferMemory, nullptr);
+
+        vkDestroyBuffer(device, indexBuffer, nullptr);
+        vkFreeMemory(device, indexBufferMemory, nullptr);
 
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);

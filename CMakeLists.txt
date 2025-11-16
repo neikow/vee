@@ -13,7 +13,10 @@ find_library(SHADERC_LIB NAMES shaderc_shared shaderc_combined shaderc HINTS /op
 add_executable(${PROJECT_NAME} main.cpp
         src/shaders/compile.cpp
         src/shaders/compile.h
+        external/stb/stb_image.cpp
 )
+
+target_include_directories(${PROJECT_NAME} PRIVATE external/stb)
 
 if (NOT SHADERC_LIB)
     message(FATAL_ERROR "shaderc library not found. Install shaderc (Homebrew: `brew install shaderc`) or set SHADERC_LIB manually.")
@@ -22,6 +25,7 @@ endif ()
 if (SHADERC_INCLUDE_DIR)
     target_include_directories(${PROJECT_NAME} PRIVATE ${SHADERC_INCLUDE_DIR})
 endif ()
+
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
         ${SHADERC_LIB}

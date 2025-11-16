@@ -211,11 +211,11 @@ auto fragmentShader = R"(
         layout(binding = 1) uniform sampler2D texSampler;
 
         void main() {
-            outColor = texture(texSampler, fragTexCoord * 2.0f);
+            outColor = texture(texSampler, fragTexCoord * 1.0f);
         }
     )";
 
-const int MAX_FRAMES_IN_FLIGHT = 2;
+constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 class HelloTriangleApplication {
     GLFWwindow *window = nullptr;
@@ -284,7 +284,7 @@ private:
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
     }
 
-    static void framebufferResizeCallback(GLFWwindow *window, int width, int height) {
+    static void framebufferResizeCallback(GLFWwindow *window, int, int) {
         const auto app = static_cast<HelloTriangleApplication *>(glfwGetWindowUserPointer(window));
         app->framebufferResized = true;
     }
@@ -352,12 +352,12 @@ private:
     }
 
     void createImage(
-        uint32_t width,
-        uint32_t height,
-        VkFormat format,
-        VkImageTiling tiling,
-        VkImageUsageFlags usage,
-        VkMemoryPropertyFlags properties,
+        const uint32_t width,
+        const uint32_t height,
+        const VkFormat format,
+        const VkImageTiling tiling,
+        const VkImageUsageFlags usage,
+        const VkMemoryPropertyFlags properties,
         VkImage &image,
         VkDeviceMemory &imageMemory,
         const std::vector<uint32_t> &queueFamilyIndices
@@ -405,7 +405,12 @@ private:
         vkBindImageMemory(device, image, imageMemory, 0);
     }
 
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+    void transitionImageLayout(
+        const VkImage &image,
+        VkFormat format,
+        const VkImageLayout oldLayout,
+        const VkImageLayout newLayout
+    ) {
         VkCommandBuffer commandBuffer = beginSingleTimeCommands(transferCommandPool);
 
         VkImageMemoryBarrier barrier{};
@@ -460,7 +465,12 @@ private:
         endSingleTimeCommands(commandBuffer, transferQueue, transferCommandPool);
     }
 
-    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
+    void copyBufferToImage(
+        const VkBuffer &buffer,
+        const VkImage &image,
+        const uint32_t width,
+        const uint32_t height
+    ) {
         VkCommandBuffer commandBuffer = beginSingleTimeCommands(transferCommandPool);
 
         VkBufferImageCopy region{};

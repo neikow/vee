@@ -14,9 +14,10 @@ add_executable(${PROJECT_NAME} main.cpp
         src/shaders/compile.cpp
         src/shaders/compile.h
         external/stb/stb_image.cpp
+        external/tinyobjectloader/tiny_obj_loader.cpp
 )
 
-target_include_directories(${PROJECT_NAME} PRIVATE external/stb)
+target_include_directories(${PROJECT_NAME} PRIVATE external/stb external/tinyobjectloader)
 
 if (NOT SHADERC_LIB)
     message(FATAL_ERROR "shaderc library not found. Install shaderc (Homebrew: `brew install shaderc`) or set SHADERC_LIB manually.")

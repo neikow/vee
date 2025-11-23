@@ -22,6 +22,10 @@ std::shared_ptr<AbstractRenderer> Engine::GetRenderer() const {
     return m_Renderer;
 }
 
+EntityID Engine::CreateEntity() const {
+    return m_EntityManager->CreateEntity();
+}
+
 void Engine::RegisterInternalSystems() {
     Signature renderableSignature;
     renderableSignature.set(ComponentTypeHelper<RenderableComponent>::ID);

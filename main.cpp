@@ -57,9 +57,9 @@ int main() {
         g_ComponentManager
     );
 
-    const EntityID camera = g_Engine->m_EntityManager->CreateEntity();
-    const EntityID vikingRoom1 = g_Engine->m_EntityManager->CreateEntity();
-    const EntityID apple = g_Engine->m_EntityManager->CreateEntity();
+    const EntityID camera = g_Engine->CreateEntity();
+    const EntityID vikingRoom1 = g_Engine->CreateEntity();
+    const EntityID apple = g_Engine->CreateEntity();
 
     g_ComponentManager->AddComponent<TransformComponent>(
         vikingRoom1,

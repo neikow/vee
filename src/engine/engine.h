@@ -19,7 +19,6 @@
 class Engine {
     bool m_ShouldQuit = false;
 
-public:
     std::shared_ptr<AbstractRenderer> m_Renderer;
 
     std::shared_ptr<Vulkan::TextureManager> m_TextureManager;
@@ -31,6 +30,7 @@ public:
 
     std::shared_ptr<DisplaySystem> m_DisplaySystem;
 
+public:
     Engine(
         const std::shared_ptr<AbstractRenderer> &renderer,
         const std::shared_ptr<SystemManager> &systemManager,
@@ -54,6 +54,8 @@ public:
     [[nodiscard]] bool ShouldQuit() const;
 
     [[nodiscard]] std::shared_ptr<AbstractRenderer> GetRenderer() const;
+
+    [[nodiscard]] EntityID CreateEntity() const;
 
 private:
     void RegisterInternalSystems();

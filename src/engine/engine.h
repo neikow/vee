@@ -19,18 +19,15 @@
 class Engine {
     bool m_ShouldQuit = false;
 
-    std::shared_ptr<AbstractRenderer> m_Renderer;
-
     std::shared_ptr<Vulkan::TextureManager> m_TextureManager;
-
-    std::shared_ptr<SystemManager> m_SystemManager;
-    std::shared_ptr<EntityManager> m_EntityManager;
-
-    std::shared_ptr<ComponentManager> m_ComponentManager;
-
     std::shared_ptr<DisplaySystem> m_DisplaySystem;
 
 public:
+    std::shared_ptr<AbstractRenderer> m_Renderer;
+    std::shared_ptr<SystemManager> m_SystemManager;
+    std::shared_ptr<EntityManager> m_EntityManager;
+    std::shared_ptr<ComponentManager> m_ComponentManager;
+
     Engine(
         const std::shared_ptr<AbstractRenderer> &renderer,
         const std::shared_ptr<SystemManager> &systemManager,

@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <glm/mat4x4.hpp>
 
+#include "imgui.h"
+
 
 class AbstractRenderer {
 public:
@@ -32,6 +34,9 @@ public:
     virtual void WaitIdle() = 0;
 
     virtual float GetAspectRatio() = 0;
+
+    virtual void SubmitUIDrawData(ImDrawData *drawData) = 0;
+
 
     virtual ~AbstractRenderer() = default;
 };

@@ -7,6 +7,7 @@
 #include <vulkan/vulkan.h>
 
 #include "consts.h"
+#include "imgui_impl_vulkan.h"
 #include "stb_image.h"
 #include "tiny_obj_loader.h"
 #include "types.h"
@@ -83,6 +84,10 @@ namespace Vulkan {
         glm::mat4 model;
         TextureId textureID;
     };
+
+    VkDevice Renderer::GetDevice() const {
+        return m_Device;
+    }
 
     void Renderer::InitWindow(const int width, const int height, const std::string &appName) {
         glfwInit();
@@ -1671,5 +1676,14 @@ namespace Vulkan {
 
     void Renderer::WaitIdle() {
         vkDeviceWaitIdle(m_Device);
+    }
+
+    void Renderer::SubmitUIDrawData(ImDrawData *drawData) {
+    }
+
+    void Renderer::RecordUiDrawData(const VkCommandBuffer &commandBuffer, ImDrawData *drawData) {
+        if (drawData) {
+            ImGui_ImplVulkan_RenderDrawData(drawData, commandBuffer);
+        }
     }
 }

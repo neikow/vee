@@ -22,6 +22,7 @@ namespace Vulkan {
 
     class Renderer final : AbstractRenderer {
         friend class TextureManager;
+        friend class RendererWithUi;
 
         GLFWwindow *m_Window = nullptr;
         bool m_FramebufferResized = false;
@@ -110,6 +111,14 @@ namespace Vulkan {
         bool ShouldClose() override;
 
         void WaitIdle() override;
+
+        void SubmitUIDrawData(ImDrawData *drawData) override;
+
+        static void RecordUiDrawData(const VkCommandBuffer &commandBuffer, ImDrawData *drawData);
+
+        [[nodiscard]] VkDevice GetDevice() const;
+
+        float GetAspectRatio() override;
 
     private:
         void InitWindow(int width, int height, const std::string &appName);
@@ -217,8 +226,6 @@ namespace Vulkan {
         void SetupDebugMessenger();
 
         static void FramebufferResizeCallback(GLFWwindow *window, int, int);
-
-        float GetAspectRatio() override;
     };
 }
 

@@ -16,6 +16,8 @@
 #include <cstdlib>
 
 #include "src/engine/engine.h"
+
+#include "src/editor/renderer/vulkan/vulkan_renderer_with_ui.h"
 #include "src/engine/entities/manager.h"
 #include "src/engine/entities/components/component_manager.h"
 #include "src/engine/entities/components/transform_component.h"

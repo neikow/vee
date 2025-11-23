@@ -1,7 +1,7 @@
 #include "vulkan_mesh_manager.h"
 
 namespace Vulkan {
-    LoadModelResult ModelManager::LoadModelData(
+    LoadModelResult MeshManager::LoadModelData(
         const tinyobj::attrib_t &attrib,
         const std::vector<tinyobj::shape_t> &shapes
     ) {

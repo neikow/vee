@@ -30,19 +30,23 @@ constexpr uint32_t WIDTH = 1200;
 constexpr uint32_t HEIGHT = 600;
 
 int main() {
-    const auto modelManager = std::make_shared<Vulkan::ModelManager>();
+    const auto g_MeshManager = std::make_shared<Vulkan::MeshManager>();
 
-    const auto vikingRoomModel = modelManager->LoadModel("../assets/models/viking_room.obj");
-    const auto appleModel = modelManager->LoadModel("../assets/models/apple.obj");
+    const auto vikingRoomMesh = g_MeshManager->LoadModel("../assets/models/viking_room.obj");
+    const auto appleMesh = g_MeshManager->LoadModel("../assets/models/apple.obj");
 
-    const auto g_Renderer = std::reinterpret_pointer_cast<AbstractRenderer>(
-        std::make_shared<Vulkan::Renderer>(
-            modelManager
-        )
+    const auto g_TextureManager = std::make_shared<Vulkan::TextureManager>();
+
+    const auto vikingRoomTexture = g_TextureManager->LoadTexture("../assets/textures/viking_room.png");
+    const auto appleTexture = g_TextureManager->LoadTexture("../assets/textures/apple.jpg");
+
+    const auto g_Renderer = std::make_shared<Vulkan::Renderer>(
+        g_MeshManager,
+        g_TextureManager
     );
 
     const auto g_Engine = std::make_shared<Engine>(
-        g_Renderer
+        std::reinterpret_pointer_cast<AbstractRenderer>(g_Renderer)
     );
 
     const EntityID camera = g_Engine->m_EntityManager->CreateEntity();
@@ -69,8 +73,8 @@ int main() {
     g_Engine->m_ComponentManager->AddComponent<RenderableComponent>(
         vikingRoom1,
         RenderableComponent{
-            vikingRoomModel,
-            0
+            vikingRoomMesh,
+            vikingRoomTexture
         }
     );
 
@@ -94,8 +98,8 @@ int main() {
     g_Engine->m_ComponentManager->AddComponent<RenderableComponent>(
         apple,
         RenderableComponent{
-            appleModel,
-            0
+            appleMesh,
+            appleTexture
         }
     );
 

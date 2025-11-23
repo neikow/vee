@@ -4,7 +4,7 @@
 #include "../../renderer/vulkan/vertex.h"
 
 namespace Vulkan {
-    class ModelManager final : public IMeshManager<Vertex> {
+    class MeshManager final : public IMeshManager<Vertex> {
         LoadModelResult LoadModelData(
             const tinyobj::attrib_t &attrib,
             const std::vector<tinyobj::shape_t> &shapes

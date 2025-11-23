@@ -9,6 +9,7 @@
 #include "vertex.h"
 #include "../abstract.h"
 #include "../../models/mesh_manager/vulkan_mesh_manager.h"
+#include "../../models/texture_manager/vulkan_texture_manager.h"
 
 namespace Vulkan {
     constexpr int MAX_FRAMES_IN_FLIGHT = 2;
@@ -20,10 +21,13 @@ namespace Vulkan {
     };
 
     class Renderer final : AbstractRenderer {
+        friend class TextureManager;
+
         GLFWwindow *m_Window = nullptr;
         bool m_FramebufferResized = false;
 
-        std::shared_ptr<ModelManager> m_ModelManager;
+        std::shared_ptr<MeshManager> m_ModelManager;
+        std::shared_ptr<TextureManager> m_TextureManager;
 
         VkInstance m_Instance = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT m_DebugMessenger = VK_NULL_HANDLE;
@@ -59,9 +63,6 @@ namespace Vulkan {
         VkDeviceMemory m_DepthImageMemory = VK_NULL_HANDLE;
         VkImageView m_DepthImageView = VK_NULL_HANDLE;
 
-        VkImage m_TextureImage = VK_NULL_HANDLE;
-        VkImageView m_TextureImageView = VK_NULL_HANDLE;
-        VkDeviceMemory m_TextureImageMemory = VK_NULL_HANDLE;
         VkSampler m_TextureSampler = VK_NULL_HANDLE;
 
         std::vector<DrawCall> m_DrawQueue;
@@ -83,7 +84,13 @@ namespace Vulkan {
         uint32_t m_ImageIndex = 0;
 
     public:
-        explicit Renderer(const std::shared_ptr<ModelManager> &modelManager) : m_ModelManager(modelManager) {
+        explicit Renderer(const std::shared_ptr<MeshManager> &modelManager,
+                          const std::shared_ptr<TextureManager> &textureManager)
+            : m_ModelManager(modelManager),
+              m_TextureManager(textureManager) {
+            textureManager->BindRenderer(
+                std::shared_ptr<Renderer>(this)
+            );
         }
 
         void Initialize(int width, int height, const std::string &appName, uint32_t version) override;
@@ -135,8 +142,6 @@ namespace Vulkan {
 
         void CreateTextureSampler();
 
-        void CreateTextureImageView();
-
         void CreateBuffer(
             VkDeviceSize size,
             VkBufferUsageFlags usage,
@@ -147,8 +152,6 @@ namespace Vulkan {
         ) const;
 
         void CopyBufferToImage(const VkBuffer &buffer, const VkImage &image, uint32_t width, uint32_t height) const;
-
-        void CreateTextureImage();
 
         void CreateFramebuffers();
 

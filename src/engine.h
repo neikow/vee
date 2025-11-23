@@ -13,6 +13,7 @@
 #include "entities/system/camera_system.h"
 #include "entities/system/display_system.h"
 #include "entities/system/movement_system.h"
+#include "models/texture_manager/vulkan_texture_manager.h"
 #include "renderer/abstract.h"
 
 class Engine {
@@ -20,6 +21,8 @@ class Engine {
 
 public:
     std::shared_ptr<AbstractRenderer> m_Renderer;
+
+    std::shared_ptr<Vulkan::TextureManager> m_TextureManager;
 
     std::shared_ptr<SystemManager> m_SystemManager;
     std::shared_ptr<EntityManager> m_EntityManager;
@@ -30,14 +33,15 @@ public:
     std::shared_ptr<CameraSystem> m_CameraSystem;
     std::shared_ptr<MovementSystem> m_MovementSystem;
 
-    explicit Engine(const std::shared_ptr<AbstractRenderer> &renderer)
+    explicit Engine(
+        const std::shared_ptr<AbstractRenderer> &renderer
+    )
         : m_Renderer(renderer),
           m_SystemManager(std::make_shared<SystemManager>()),
           m_EntityManager(std::make_shared<EntityManager>()),
           m_ComponentManager(
               std::make_shared<ComponentManager>(
-                  m_SystemManager, m_EntityManager
-              )
+                  m_SystemManager, m_EntityManager)
           ) {
         RegisterComponents();
         RegisterInternalSystems();

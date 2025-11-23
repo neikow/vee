@@ -66,6 +66,8 @@ add_executable(${PROJECT_NAME} main.cpp
         src/utils/type_utils.h
         src/utils/concepts/hashable.h
         src/utils/vectors.h
+        src/models/texture_manager/vulkan_texture_manager.cpp
+        src/models/texture_manager/vulkan_texture_manager.h
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE external/stb external/tinyobjectloader)

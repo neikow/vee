@@ -21,6 +21,7 @@ auto vertexShader = R"(
 
         layout(push_constant) uniform PushConstants {
             mat4 model;
+            uint textureId;
         } pcs;
 
         layout(binding = 0) uniform UniformBufferObject {
@@ -42,19 +43,28 @@ auto vertexShader = R"(
         }
     )";
 
+constexpr int MAX_TEXTURES = 8;
+
 //language=GLSL
 auto fragmentShader = R"(
         #version 450
+
+        const int MAX_TEXTURES = 8;
 
         layout(location = 0) in vec3 fragColor;
         layout(location = 1) in vec2 fragTexCoord;
 
         layout(location = 0) out vec4 outColor;
 
-        layout(binding = 1) uniform sampler2D texSampler;
+        layout(push_constant) uniform PushConstants {
+            mat4 model;
+            uint textureId;
+        } pcs;
+
+        layout(binding = 1) uniform sampler2D texSamplers[MAX_TEXTURES];
 
         void main() {
-            outColor = texture(texSampler, fragTexCoord * 1.0f);
+            outColor = texture(texSamplers[pcs.textureId], fragTexCoord * 1.0f);
         }
     )";
 
@@ -69,6 +79,11 @@ constexpr auto MESSAGE_TYPE =
         VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 
 namespace Vulkan {
+    struct PushData {
+        glm::mat4 model;
+        TextureId textureID;
+    };
+
     void Renderer::InitWindow(const int width, const int height, const std::string &appName) {
         glfwInit();
 
@@ -102,8 +117,6 @@ namespace Vulkan {
         CreateCommandPools();
         CreateDepthResources();
         CreateFramebuffers();
-        CreateTextureImage();
-        CreateTextureImageView();
         CreateTextureSampler();
         CreateVertexBuffer();
         CreateIndexBuffer();
@@ -154,6 +167,11 @@ namespace Vulkan {
     }
 
     void Renderer::CreateDescriptorSets() {
+        if (!m_TextureManager) {
+            throw std::runtime_error("CreateDescriptorSets called but m_TextureManager is null");
+        }
+        m_TextureManager->CreateResources();
+
         const std::vector layouts(MAX_FRAMES_IN_FLIGHT, m_DescriptorSetLayout);
 
         VkDescriptorSetAllocateInfo allocInfo{};
@@ -173,10 +191,13 @@ namespace Vulkan {
             bufferInfo.offset = 0;
             bufferInfo.range = sizeof(UniformBufferObject);
 
-            VkDescriptorImageInfo imageInfo{};
-            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfo.imageView = m_TextureImageView;
-            imageInfo.sampler = m_TextureSampler;
+            std::vector<VkDescriptorImageInfo> textureInfos(MAX_TEXTURES);
+
+            for (uint32_t j = 0; j < MAX_TEXTURES; ++j) {
+                textureInfos[j].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                textureInfos[j].imageView = m_TextureManager->GetImageView(j);
+                textureInfos[j].sampler = m_TextureSampler;
+            }
 
             std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 
@@ -193,8 +214,8 @@ namespace Vulkan {
             descriptorWrites[1].dstBinding = 1;
             descriptorWrites[1].dstArrayElement = 0;
             descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            descriptorWrites[1].descriptorCount = 1;
-            descriptorWrites[1].pImageInfo = &imageInfo;
+            descriptorWrites[1].descriptorCount = MAX_TEXTURES;
+            descriptorWrites[1].pImageInfo = textureInfos.data();
 
             vkUpdateDescriptorSets(
                 m_Device,
@@ -211,7 +232,7 @@ namespace Vulkan {
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
         poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+        poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * MAX_TEXTURES);
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -392,14 +413,6 @@ namespace Vulkan {
         }
     }
 
-    void Renderer::CreateTextureImageView() {
-        m_TextureImageView = CreateImageView(
-            m_TextureImage,
-            VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_ASPECT_COLOR_BIT
-        );
-    }
-
     void Renderer::CreateBuffer(
         const VkDeviceSize size,
         const VkBufferUsageFlags usage,
@@ -477,81 +490,6 @@ namespace Vulkan {
         );
 
         EndSingleTimeCommands(commandBuffer, m_TransferQueue, m_TransferCommandPool);
-    }
-
-    void Renderer::CreateTextureImage() {
-        int texWidth, texHeight, texChannels;
-        stbi_uc *pixels = stbi_load(
-            "../assets/textures/viking_room.png",
-            &texWidth, &texHeight,
-            &texChannels,
-            STBI_rgb_alpha
-        );
-        const VkDeviceSize imageSize = texWidth * texHeight * sizeof(uint8_t) * 4;
-
-        if (!pixels) {
-            throw std::runtime_error("failed to load texture image!");
-        }
-
-        std::vector<uint32_t> stagingFamilies;
-
-        const auto familyIndices = FindQueueFamilies(m_PhysicalDevice);
-        if (familyIndices.transferFamily.has_value())
-            stagingFamilies.push_back(
-                familyIndices.transferFamily.value());
-
-        VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-        CreateBuffer(
-            imageSize,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stagingBuffer,
-            stagingBufferMemory,
-            stagingFamilies
-        );
-
-        void *data;
-        vkMapMemory(m_Device, stagingBufferMemory, 0, imageSize, 0, &data);
-        memcpy(data, pixels, imageSize);
-        vkUnmapMemory(m_Device, stagingBufferMemory);
-
-        stbi_image_free(pixels);
-
-        CreateImage(
-            texWidth,
-            texHeight,
-            VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_TILING_OPTIMAL,
-            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            m_TextureImage,
-            m_TextureImageMemory,
-            stagingFamilies
-        );
-
-        TransitionImageLayout(
-            m_TextureImage,
-            VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-        );
-        CopyBufferToImage(
-            stagingBuffer,
-            m_TextureImage,
-            static_cast<uint32_t>(texWidth),
-            static_cast<uint32_t>(texHeight)
-        );
-
-        TransitionImageLayout(
-            m_TextureImage,
-            VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-        );
-
-        vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-        vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
     }
 
     void Renderer::CreateFramebuffers() {
@@ -825,9 +763,9 @@ namespace Vulkan {
         const auto fragShaderModule = CreateShaderModule(compiledFrag);
 
         VkPushConstantRange pushConstantRange{};
-        pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
         pushConstantRange.offset = 0;
-        pushConstantRange.size = sizeof(glm::mat4x4);
+        pushConstantRange.size = sizeof(PushData);
 
         VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
         vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -1005,7 +943,7 @@ namespace Vulkan {
 
         VkDescriptorSetLayoutBinding samplerLayoutBinding{};
         samplerLayoutBinding.binding = 1;
-        samplerLayoutBinding.descriptorCount = 1;
+        samplerLayoutBinding.descriptorCount = MAX_TEXTURES;
         samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         samplerLayoutBinding.pImmutableSamplers = nullptr;
         samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -1553,13 +1491,18 @@ namespace Vulkan {
         );
 
         for (const auto &drawCall: m_DrawQueue) {
+            PushData pushData = {
+                drawCall.worldMatrix,
+                drawCall.textureId,
+            };
+
             vkCmdPushConstants(
                 commandBuffer,
                 m_PipelineLayout,
-                VK_SHADER_STAGE_VERTEX_BIT,
+                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                 0,
-                sizeof(glm::mat4x4),
-                &drawCall.worldMatrix
+                sizeof(PushData),
+                &pushData
             );
 
             const auto info = m_ModelManager->GetMeshInfo(drawCall.meshId);
@@ -1682,9 +1625,8 @@ namespace Vulkan {
         CleanupSwapChain();
 
         vkDestroySampler(m_Device, m_TextureSampler, nullptr);
-        vkDestroyImageView(m_Device, m_TextureImageView, nullptr);
-        vkDestroyImage(m_Device, m_TextureImage, nullptr);
-        vkFreeMemory(m_Device, m_TextureImageMemory, nullptr);
+
+        m_TextureManager->Cleanup();
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroyBuffer(m_Device, m_UniformBuffers[i], nullptr);

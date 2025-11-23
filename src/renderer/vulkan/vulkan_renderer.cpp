@@ -81,6 +81,10 @@ namespace Vulkan {
         renderer->m_FramebufferResized = true;
     }
 
+    float Renderer::GetAspectRatio() {
+        return static_cast<float>(m_SwapChainExtent.width) / static_cast<float>(m_SwapChainExtent.height);
+    }
+
     void Renderer::InitVulkan(const std::string &appName, const std::uint32_t version) {
         CreateInstance(appName, version);
         SetupDebugMessenger();

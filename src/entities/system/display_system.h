@@ -8,7 +8,6 @@
 class DisplaySystem final : public SystemBase {
     std::shared_ptr<AbstractRenderer> m_Renderer;
     std::shared_ptr<EntityManager> m_EntityManager;
-    std::shared_ptr<ComponentManager> m_ComponentManager;
 
 public:
     DisplaySystem(
@@ -16,8 +15,7 @@ public:
         const std::shared_ptr<ComponentManager> &componentManager,
         const std::shared_ptr<EntityManager> &entityManager
     ) : SystemBase(componentManager), m_Renderer(renderer),
-        m_EntityManager(entityManager),
-        m_ComponentManager(componentManager) {
+        m_EntityManager(entityManager) {
     }
 
     void Update(float dt) override {

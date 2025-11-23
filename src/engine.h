@@ -69,7 +69,10 @@ public:
         activeCameraSignature.set(ComponentTypeHelper<ActiveCameraTagComponent>::ID);
 
         m_CameraSystem = m_SystemManager->RegisterSystem<CameraSystem>(
-            std::make_shared<CameraSystem>(m_ComponentManager)
+            std::make_shared<CameraSystem>(
+                m_Renderer,
+                m_ComponentManager
+            )
         );
         m_SystemManager->SetSignature<CameraSystem>(activeCameraSignature);
 
@@ -83,10 +86,10 @@ public:
         m_SystemManager->SetSignature<MovementSystem>(movementSignature);
     }
 
-    void Run() {
+    void Run(const int width, const int height) const {
         m_Renderer->Initialize(
-            700,
-            500,
+            width,
+            height,
             "Vulkan Renderer",
             VK_MAKE_VERSION(1, 0, 0)
         );

@@ -2,12 +2,23 @@
 #define GAME_ENGINE_CAMERA_SYSTEM_H
 #include "system.h"
 
+#include "../../renderer/abstract.h"
 #include "../components/component_manager.h"
 #include "../components/transform_component.h"
 #include "../components/camera_component.h"
 
+
 class CameraSystem final : public SystemBase {
     using SystemBase::SystemBase;
+
+    std::shared_ptr<AbstractRenderer> m_Renderer;
+
+public:
+    CameraSystem(
+        const std::shared_ptr<AbstractRenderer> &renderer,
+        const std::shared_ptr<ComponentManager> &componentManager
+    ) : SystemBase(componentManager), m_Renderer(renderer) {
+    }
 
     void Update(float dt) override {
         std::optional<EntityID> activeCameraId;
@@ -31,10 +42,14 @@ class CameraSystem final : public SystemBase {
 
         cameraComponent.viewMatrix = glm::inverse(M_world);
 
+        const auto aspectRatio = cameraComponent.aspectRatio == 0.0f
+                                     ? m_Renderer->GetAspectRatio()
+                                     : cameraComponent.aspectRatio;
+
         if (cameraComponent.projection == PERSPECTIVE) {
             cameraComponent.projectionMatrix = glm::perspective(
                 glm::radians(cameraComponent.fieldOfView),
-                cameraComponent.aspectRatio,
+                aspectRatio,
                 cameraComponent.nearPlane,
                 cameraComponent.farPlane
             );

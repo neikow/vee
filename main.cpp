@@ -26,7 +26,7 @@
 #include "src/renderer/vulkan/vertex.h"
 #include "src/renderer/vulkan/vulkan_renderer.h"
 
-constexpr uint32_t WIDTH = 800;
+constexpr uint32_t WIDTH = 1200;
 constexpr uint32_t HEIGHT = 600;
 
 int main() {
@@ -44,7 +44,7 @@ int main() {
     g_Engine->m_ComponentManager->AddComponent<TransformComponent>(
         vikingRoom1,
         TransformComponent{
-            glm::vec3(),
+            glm::vec3(-1.0f, 0.0f, 0.0f),
             glm::quat(1, glm::radians(-90.0f), 0, 0),
             1.0f
         }
@@ -71,7 +71,7 @@ int main() {
         CameraComponent{
             PERSPECTIVE,
             45.0f,
-            16.0f / 9.0f,
+            0.0f,
             0.01f,
             200.0f
 
@@ -93,7 +93,7 @@ int main() {
     );
 
     try {
-        g_Engine->Run();
+        g_Engine->Run(WIDTH, HEIGHT);
     } catch (const std::exception &e) {
         std::cerr << e.what() << std::endl;
         return EXIT_FAILURE;

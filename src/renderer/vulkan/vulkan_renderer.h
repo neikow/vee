@@ -206,6 +206,8 @@ namespace Vulkan {
         void SetupDebugMessenger();
 
         static void FramebufferResizeCallback(GLFWwindow *window, int, int);
+
+        float GetAspectRatio() override;
     };
 }
 

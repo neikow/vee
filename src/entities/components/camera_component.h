@@ -20,9 +20,7 @@ struct CameraComponent {
     float orthoScale = 10.0f;
 
     // Cached variables (per frame)
-    // Cached
     glm::mat4 viewMatrix{};
-    // Cached
     glm::mat4 projectionMatrix{};
 };
 

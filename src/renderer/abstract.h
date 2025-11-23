@@ -31,6 +31,8 @@ public:
 
     virtual void WaitIdle() = 0;
 
+    virtual float GetAspectRatio() = 0;
+
     virtual ~AbstractRenderer() = default;
 };
 

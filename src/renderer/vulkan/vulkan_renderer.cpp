@@ -1227,8 +1227,10 @@ namespace Vulkan {
         const std::string &appName,
         const uint32_t version
     ) {
-        if (ENABLE_VALIDATION_LAYERS && !Utils::CheckValidationLayerSupport()) {
-            throw std::runtime_error("validation layers requested, but not available!");
+        if constexpr (ENABLE_VALIDATION_LAYERS) {
+            if (!Utils::CheckValidationLayerSupport()) {
+                throw std::runtime_error("validation layers requested, but not available!");
+            }
         }
 
         VkApplicationInfo appInfo{};

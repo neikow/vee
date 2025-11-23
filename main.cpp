@@ -7,7 +7,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-
 #include <stb_image.h>
 
 #include <chrono>
@@ -16,15 +15,15 @@
 #include <stdexcept>
 #include <cstdlib>
 
-#include "src/engine.h"
-#include "src/entities/manager.h"
-#include "src/entities/components/component_manager.h"
-#include "src/entities/components/transform_component.h"
-#include "src/entities/components/velocity_component.h"
-#include "src/entities/components/tags/active_camera_tag_component.h"
-#include "src/renderer/abstract.h"
-#include "src/renderer/vulkan/vertex.h"
-#include "src/renderer/vulkan/vulkan_renderer.h"
+#include "src/engine/engine.h"
+#include "src/engine/entities/manager.h"
+#include "src/engine/entities/components/component_manager.h"
+#include "src/engine/entities/components/transform_component.h"
+#include "src/engine/entities/components/velocity_component.h"
+#include "src/engine/entities/components/tags/active_camera_tag_component.h"
+#include "src/engine/renderer/abstract.h"
+#include "src/engine/renderer/vulkan/vertex.h"
+#include "src/engine/renderer/vulkan/vulkan_renderer.h"
 
 constexpr uint32_t WIDTH = 1200;
 constexpr uint32_t HEIGHT = 600;

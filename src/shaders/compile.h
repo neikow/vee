@@ -5,14 +5,17 @@
 #include <vector>
 #include <shaderc/shaderc.hpp>
 
-std::vector<uint32_t> CompileShader(
-    const std::string &source_code,
-    shaderc_shader_kind shader_kind,
-    const std::string &filename = "shader"
-);
+namespace Shaders {
+    std::vector<uint32_t> Compile(
+        const std::string &source_code,
+        shaderc_shader_kind shader_kind,
+        const std::string &filename = "shader"
+    );
 
-std::vector<uint32_t> CompileShaderFromFile(
-    const std::string &filepath,
-    shaderc_shader_kind shader_kind
-);
+    std::vector<uint32_t> CompileFromFile(
+        const std::string &filepath,
+        shaderc_shader_kind shader_kind
+    );
+}
+
 #endif //GAME_ENGINE_COMPILE_H

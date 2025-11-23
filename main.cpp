@@ -45,15 +45,24 @@ int main() {
         g_TextureManager
     );
 
+    const auto g_SystemManager = std::make_shared<SystemManager>();
+
+    const auto g_EntityManager = std::make_shared<EntityManager>();
+
+    const auto g_ComponentManager = std::make_shared<ComponentManager>(g_SystemManager, g_EntityManager);
+
     const auto g_Engine = std::make_shared<Engine>(
-        std::reinterpret_pointer_cast<AbstractRenderer>(g_Renderer)
+        std::reinterpret_pointer_cast<AbstractRenderer>(g_Renderer),
+        g_SystemManager,
+        g_EntityManager,
+        g_ComponentManager
     );
 
     const EntityID camera = g_Engine->m_EntityManager->CreateEntity();
     const EntityID vikingRoom1 = g_Engine->m_EntityManager->CreateEntity();
     const EntityID apple = g_Engine->m_EntityManager->CreateEntity();
 
-    g_Engine->m_ComponentManager->AddComponent<TransformComponent>(
+    g_ComponentManager->AddComponent<TransformComponent>(
         vikingRoom1,
         TransformComponent{
             glm::vec3(-1.0f, 0.0f, 0.0f),
@@ -62,15 +71,15 @@ int main() {
         }
     );
 
-    g_Engine->m_ComponentManager->AddComponent<VelocityComponent>(
+    g_ComponentManager->AddComponent<VelocityComponent>(
         vikingRoom1,
         VelocityComponent{
             glm::vec3(),
-            glm::vec3(0.0f, 0.0f, glm::radians(5.0f))
+            glm::vec3(0.0f, 0.0f, glm::radians(15.0f))
         }
     );
 
-    g_Engine->m_ComponentManager->AddComponent<RenderableComponent>(
+    g_ComponentManager->AddComponent<RenderableComponent>(
         vikingRoom1,
         RenderableComponent{
             vikingRoomMesh,
@@ -78,7 +87,7 @@ int main() {
         }
     );
 
-    g_Engine->m_ComponentManager->AddComponent<TransformComponent>(
+    g_ComponentManager->AddComponent<TransformComponent>(
         apple,
         TransformComponent{
             glm::vec3(1.0f, 0.0f, 0.0f),
@@ -87,15 +96,15 @@ int main() {
         }
     );
 
-    g_Engine->m_ComponentManager->AddComponent<VelocityComponent>(
+    g_ComponentManager->AddComponent<VelocityComponent>(
         apple,
         VelocityComponent{
             glm::vec3(),
-            glm::vec3(0, glm::radians(-5.0f), 0)
+            glm::vec3(0, glm::radians(-20.0f), 0)
         }
     );
 
-    g_Engine->m_ComponentManager->AddComponent<RenderableComponent>(
+    g_ComponentManager->AddComponent<RenderableComponent>(
         apple,
         RenderableComponent{
             appleMesh,
@@ -103,7 +112,7 @@ int main() {
         }
     );
 
-    g_Engine->m_ComponentManager->AddComponent<CameraComponent>(
+    g_ComponentManager->AddComponent<CameraComponent>(
         camera,
         CameraComponent{
             PERSPECTIVE,
@@ -115,7 +124,7 @@ int main() {
         }
     );
 
-    g_Engine->m_ComponentManager->AddComponent<TransformComponent>(
+    g_ComponentManager->AddComponent<TransformComponent>(
         camera,
         TransformComponent{
             glm::vec3(0.0f, 0.3f, 3.0f),
@@ -124,17 +133,32 @@ int main() {
         }
     );
 
-    g_Engine->m_ComponentManager->AddComponent<ActiveCameraTagComponent>(
+    g_ComponentManager->AddComponent<ActiveCameraTagComponent>(
         camera,
         ActiveCameraTagComponent{}
     );
 
+    bool hasError = false;
+
     try {
-        g_Engine->Run(WIDTH, HEIGHT);
+        g_Engine->Initialize(WIDTH, HEIGHT, "Engine", VK_MAKE_VERSION(1, 0, 0));
+
+        auto startTime = std::chrono::high_resolution_clock::now();
+
+        while (!g_Engine->ShouldQuit() && !g_Engine->GetRenderer()->ShouldClose()) {
+            const auto deltaTime = std::chrono::duration<float>(
+                std::chrono::high_resolution_clock::now() - startTime
+            ).count();
+            startTime = std::chrono::high_resolution_clock::now();
+
+            glfwPollEvents();
+            g_Engine->Update(deltaTime);
+        }
     } catch (const std::exception &e) {
         std::cerr << e.what() << std::endl;
-        return EXIT_FAILURE;
+        hasError = true;
     }
+    g_Engine->Shutdown();
 
-    return EXIT_SUCCESS;
+    return hasError ? EXIT_FAILURE : EXIT_SUCCESS;
 }

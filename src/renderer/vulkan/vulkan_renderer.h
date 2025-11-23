@@ -8,15 +8,22 @@
 #include "types.h"
 #include "vertex.h"
 #include "../abstract.h"
+#include "../../models/mesh_manager/vulkan_mesh_manager.h"
 
 namespace Vulkan {
     constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-    class Renderer final : AbstractRenderer {
-        using AbstractRenderer::AbstractRenderer;
+    struct DrawCall {
+        glm::mat4 worldMatrix;
+        std::uint32_t meshId;
+        std::uint32_t textureId;
+    };
 
+    class Renderer final : AbstractRenderer {
         GLFWwindow *m_Window = nullptr;
         bool m_FramebufferResized = false;
+
+        std::shared_ptr<ModelManager> m_ModelManager;
 
         VkInstance m_Instance = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT m_DebugMessenger = VK_NULL_HANDLE;
@@ -57,9 +64,7 @@ namespace Vulkan {
         VkDeviceMemory m_TextureImageMemory = VK_NULL_HANDLE;
         VkSampler m_TextureSampler = VK_NULL_HANDLE;
 
-        std::vector<Vertex> m_Vertices;
-        std::unordered_map<Vertex, uint32_t> m_UniqueVertices{};
-        std::vector<uint32_t> m_Indices;
+        std::vector<DrawCall> m_DrawQueue;
 
         VkBuffer m_VertexBuffer = VK_NULL_HANDLE;
         VkDeviceMemory m_VertexBufferMemory = VK_NULL_HANDLE;
@@ -78,9 +83,14 @@ namespace Vulkan {
         uint32_t m_ImageIndex = 0;
 
     public:
+        explicit Renderer(const std::shared_ptr<ModelManager> &modelManager) : m_ModelManager(modelManager) {
+        }
+
         void Initialize(int width, int height, const std::string &appName, uint32_t version) override;
 
         void BeginFrame() override;
+
+        void RecordDrawQueue(VkCommandBuffer commandBuffer);
 
         void EndFrame() override;
 
@@ -121,9 +131,7 @@ namespace Vulkan {
             VkBuffer srcBuffer,
             VkBuffer dstBuffer,
             VkDeviceSize size
-        );
-
-        void LoadModel();
+        ) const;
 
         void CreateTextureSampler();
 

@@ -30,8 +30,15 @@ constexpr uint32_t WIDTH = 1200;
 constexpr uint32_t HEIGHT = 600;
 
 int main() {
+    const auto modelManager = std::make_shared<Vulkan::ModelManager>();
+
+    const auto vikingRoomModel = modelManager->LoadModel("../assets/models/viking_room.obj");
+    const auto appleModel = modelManager->LoadModel("../assets/models/apple.obj");
+
     const auto g_Renderer = std::reinterpret_pointer_cast<AbstractRenderer>(
-        std::make_shared<Vulkan::Renderer>()
+        std::make_shared<Vulkan::Renderer>(
+            modelManager
+        )
     );
 
     const auto g_Engine = std::make_shared<Engine>(
@@ -40,7 +47,7 @@ int main() {
 
     const EntityID camera = g_Engine->m_EntityManager->CreateEntity();
     const EntityID vikingRoom1 = g_Engine->m_EntityManager->CreateEntity();
-    const EntityID vikingRoom2 = g_Engine->m_EntityManager->CreateEntity();
+    const EntityID apple = g_Engine->m_EntityManager->CreateEntity();
 
     g_Engine->m_ComponentManager->AddComponent<TransformComponent>(
         vikingRoom1,
@@ -62,32 +69,32 @@ int main() {
     g_Engine->m_ComponentManager->AddComponent<RenderableComponent>(
         vikingRoom1,
         RenderableComponent{
-            0,
+            vikingRoomModel,
             0
         }
     );
 
     g_Engine->m_ComponentManager->AddComponent<TransformComponent>(
-        vikingRoom2,
+        apple,
         TransformComponent{
             glm::vec3(1.0f, 0.0f, 0.0f),
-            glm::quat(1, glm::radians(-90.0f), 0, 0),
-            1.0f
+            glm::quat(1, 0, glm::radians(-90.0f), 0),
+            3.0f
         }
     );
 
     g_Engine->m_ComponentManager->AddComponent<VelocityComponent>(
-        vikingRoom2,
+        apple,
         VelocityComponent{
             glm::vec3(),
-            glm::vec3(0.0f, 0.0f, glm::radians(-5.0f))
+            glm::vec3(0, glm::radians(-5.0f), 0)
         }
     );
 
     g_Engine->m_ComponentManager->AddComponent<RenderableComponent>(
-        vikingRoom2,
+        apple,
         RenderableComponent{
-            0,
+            appleModel,
             0
         }
     );

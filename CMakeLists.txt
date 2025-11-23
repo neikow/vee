@@ -58,6 +58,14 @@ add_executable(${PROJECT_NAME} main.cpp
         src/renderer/vulkan/types.h
         src/renderer/vulkan/vertex.cpp
         src/renderer/vulkan/vertex.h
+        src/models/mesh_manager/abstract_mesh_manager.cpp
+        src/models/mesh_manager/abstract_mesh_manager.h
+        src/models/mesh_manager/vulkan_mesh_manager.cpp
+        src/models/mesh_manager/vulkan_mesh_manager.h
+        src/models/mesh_manager/vulkan_mesh_manager.h
+        src/utils/type_utils.h
+        src/utils/concepts/hashable.h
+        src/utils/vectors.h
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE external/stb external/tinyobjectloader)

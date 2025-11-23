@@ -105,7 +105,6 @@ namespace Vulkan {
         CreateTextureImage();
         CreateTextureImageView();
         CreateTextureSampler();
-        LoadModel();
         CreateVertexBuffer();
         CreateIndexBuffer();
         CreateUniformBuffers();
@@ -253,13 +252,14 @@ namespace Vulkan {
     }
 
     void Renderer::CreateIndexBuffer() {
-        const VkDeviceSize bufferSize = sizeof(m_Indices[0]) * m_Indices.size();
+        const auto indices = m_ModelManager->GetMeshIndicesArray();
+        const VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
 
         std::vector<uint32_t> stagingFamilies;
 
-        auto familyIndices = FindQueueFamilies(m_PhysicalDevice);
+        const auto familyIndices = FindQueueFamilies(m_PhysicalDevice);
         if (familyIndices.transferFamily.has_value())
             stagingFamilies.push_back(
                 familyIndices.transferFamily.value());
@@ -275,7 +275,7 @@ namespace Vulkan {
 
         void *data;
         vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
-        memcpy(data, m_Indices.data(), bufferSize);
+        memcpy(data, indices.data(), bufferSize);
         vkUnmapMemory(m_Device, stagingBufferMemory);
 
         std::vector<uint32_t> deviceFamilies;
@@ -302,7 +302,8 @@ namespace Vulkan {
     }
 
     void Renderer::CreateVertexBuffer() {
-        const VkDeviceSize bufferSize = sizeof(m_Vertices[0]) * m_Vertices.size();
+        const auto vertices = m_ModelManager->GetMeshVerticesArray();
+        const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -322,7 +323,7 @@ namespace Vulkan {
 
         void *data;
         vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
-        memcpy(data, m_Vertices.data(), bufferSize);
+        memcpy(data, vertices.data(), bufferSize);
         vkUnmapMemory(m_Device, stagingBufferMemory);
 
         std::vector<uint32_t> deviceFamilies;
@@ -346,7 +347,7 @@ namespace Vulkan {
         vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
     }
 
-    void Renderer::CopyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, VkDeviceSize size) {
+    void Renderer::CopyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, const VkDeviceSize size) const {
         const VkCommandBuffer commandBuffer = BeginSingleTimeCommands(m_TransferCommandPool);
 
         VkBufferCopy copyRegion{};
@@ -356,51 +357,6 @@ namespace Vulkan {
         vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
         EndSingleTimeCommands(commandBuffer, m_TransferQueue, m_TransferCommandPool);
-    }
-
-    void Renderer::LoadModel() {
-        tinyobj::attrib_t attrib;
-        std::vector<tinyobj::shape_t> shapes;
-        std::vector<tinyobj::material_t> materials;
-        std::string warn, err;
-
-        if (!tinyobj::LoadObj(
-                &attrib,
-                &shapes,
-                &materials,
-                &warn,
-                &err,
-                "../src/models/viking_room.obj"
-            )
-        ) {
-            throw std::runtime_error(err);
-        }
-
-        for (const auto &shape: shapes) {
-            for (const auto &index: shape.mesh.indices) {
-                Vertex vertex{};
-
-                vertex.pos = {
-                    attrib.vertices[3 * index.vertex_index + 0],
-                    attrib.vertices[3 * index.vertex_index + 1],
-                    attrib.vertices[3 * index.vertex_index + 2]
-                };
-
-                vertex.texCoord = {
-                    attrib.texcoords[2 * index.texcoord_index + 0],
-                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-                };
-
-                vertex.color = {1.0f, 1.0f, 1.0f};
-
-                if (!m_UniqueVertices.contains(vertex)) {
-                    m_UniqueVertices[vertex] = static_cast<uint32_t>(m_Vertices.size());
-                    m_Vertices.push_back(vertex);
-                }
-
-                m_Indices.push_back(m_UniqueVertices[vertex]);
-            }
-        }
     }
 
     void Renderer::CreateTextureSampler() {
@@ -526,12 +482,12 @@ namespace Vulkan {
     void Renderer::CreateTextureImage() {
         int texWidth, texHeight, texChannels;
         stbi_uc *pixels = stbi_load(
-            "../src/textures/viking_room.png",
+            "../assets/textures/viking_room.png",
             &texWidth, &texHeight,
             &texChannels,
             STBI_rgb_alpha
         );
-        VkDeviceSize imageSize = texWidth * texHeight * 4;
+        const VkDeviceSize imageSize = texWidth * texHeight * sizeof(uint8_t) * 4;
 
         if (!pixels) {
             throw std::runtime_error("failed to load texture image!");
@@ -539,7 +495,7 @@ namespace Vulkan {
 
         std::vector<uint32_t> stagingFamilies;
 
-        auto familyIndices = FindQueueFamilies(m_PhysicalDevice);
+        const auto familyIndices = FindQueueFamilies(m_PhysicalDevice);
         if (familyIndices.transferFamily.has_value())
             stagingFamilies.push_back(
                 familyIndices.transferFamily.value());
@@ -790,7 +746,7 @@ namespace Vulkan {
     }
 
     void Renderer::CreateDepthResources() {
-        VkFormat depthFormat = Utils::FindDepthFormat(m_PhysicalDevice);
+        const VkFormat depthFormat = Utils::FindDepthFormat(m_PhysicalDevice);
 
         CreateImage(
             m_SwapChainExtent.width,
@@ -1532,7 +1488,7 @@ namespace Vulkan {
 
         vkResetFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame]);
 
-        VkCommandBuffer commandBuffer = m_CommandBuffers[m_CurrentFrame];
+        const VkCommandBuffer commandBuffer = m_CommandBuffers[m_CurrentFrame];
         vkResetCommandBuffer(commandBuffer, 0);
 
         VkCommandBufferBeginInfo beginInfo{};
@@ -1580,6 +1536,11 @@ namespace Vulkan {
 
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
         vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    }
+
+    void Renderer::RecordDrawQueue(const VkCommandBuffer commandBuffer) {
+        // TODO: sort draw calls by texture to minimize descriptor set changes
+
         vkCmdBindDescriptorSets(
             commandBuffer,
             VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1590,10 +1551,36 @@ namespace Vulkan {
             0,
             nullptr
         );
+
+        for (const auto &drawCall: m_DrawQueue) {
+            vkCmdPushConstants(
+                commandBuffer,
+                m_PipelineLayout,
+                VK_SHADER_STAGE_VERTEX_BIT,
+                0,
+                sizeof(glm::mat4x4),
+                &drawCall.worldMatrix
+            );
+
+            const auto info = m_ModelManager->GetMeshInfo(drawCall.meshId);
+
+            vkCmdDrawIndexed(
+                commandBuffer,
+                info.indexCount,
+                1,
+                info.indexOffset,
+                info.vertexOffset,
+                0
+            );
+        }
+
+        m_DrawQueue.clear();
     }
 
     void Renderer::EndFrame() {
-        VkCommandBuffer commandBuffer = m_CommandBuffers[m_CurrentFrame];
+        const VkCommandBuffer commandBuffer = m_CommandBuffers[m_CurrentFrame];
+
+        RecordDrawQueue(commandBuffer);
 
         vkCmdEndRenderPass(commandBuffer);
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
@@ -1655,26 +1642,12 @@ namespace Vulkan {
         memcpy(m_UniformBuffersMapped[m_CurrentFrame], &ubo, sizeof(UniformBufferObject));
     }
 
-    void Renderer::SubmitDrawCall(const glm::mat4x4 &worldMatrix, std::uint32_t meshId, std::uint32_t textureId) {
-        const VkCommandBuffer commandBuffer = m_CommandBuffers[m_CurrentFrame];
-
-        vkCmdPushConstants(
-            commandBuffer,
-            m_PipelineLayout,
-            VK_SHADER_STAGE_VERTEX_BIT,
-            0,
-            sizeof(glm::mat4x4),
-            &worldMatrix
-        );
-
-        vkCmdDrawIndexed(
-            commandBuffer,
-            static_cast<uint32_t>(m_Indices.size()),
-            1,
-            0,
-            0,
-            0
-        );
+    void Renderer::SubmitDrawCall(const glm::mat4x4 &worldMatrix, uint32_t meshId, uint32_t textureId) {
+        m_DrawQueue.push_back({
+            worldMatrix,
+            meshId,
+            textureId
+        });
     }
 
     void Renderer::CleanupSwapChain() const {

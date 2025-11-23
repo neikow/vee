@@ -40,6 +40,7 @@ int main() {
 
     const EntityID camera = g_Engine->m_EntityManager->CreateEntity();
     const EntityID vikingRoom1 = g_Engine->m_EntityManager->CreateEntity();
+    const EntityID vikingRoom2 = g_Engine->m_EntityManager->CreateEntity();
 
     g_Engine->m_ComponentManager->AddComponent<TransformComponent>(
         vikingRoom1,
@@ -60,6 +61,31 @@ int main() {
 
     g_Engine->m_ComponentManager->AddComponent<RenderableComponent>(
         vikingRoom1,
+        RenderableComponent{
+            0,
+            0
+        }
+    );
+
+    g_Engine->m_ComponentManager->AddComponent<TransformComponent>(
+        vikingRoom2,
+        TransformComponent{
+            glm::vec3(1.0f, 0.0f, 0.0f),
+            glm::quat(1, glm::radians(-90.0f), 0, 0),
+            1.0f
+        }
+    );
+
+    g_Engine->m_ComponentManager->AddComponent<VelocityComponent>(
+        vikingRoom2,
+        VelocityComponent{
+            glm::vec3(),
+            glm::vec3(0.0f, 0.0f, glm::radians(-5.0f))
+        }
+    );
+
+    g_Engine->m_ComponentManager->AddComponent<RenderableComponent>(
+        vikingRoom2,
         RenderableComponent{
             0,
             0

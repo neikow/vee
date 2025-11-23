@@ -19,8 +19,11 @@
 auto vertexShader = R"(
         #version 450
 
-        layout(binding = 0) uniform UniformBufferObject {
+        layout(push_constant) uniform PushConstants {
             mat4 model;
+        } pcs;
+
+        layout(binding = 0) uniform UniformBufferObject {
             mat4 view;
             mat4 proj;
         } ubo;
@@ -33,7 +36,7 @@ auto vertexShader = R"(
         layout(location = 1) out vec2 fragTexCoord;
 
         void main() {
-            gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
+            gl_Position = ubo.proj * ubo.view * pcs.model * vec4(inPosition, 1.0);
             fragColor = inColor;
             fragTexCoord = inTexCoord;
         }
@@ -865,6 +868,11 @@ namespace Vulkan {
         const auto vertShaderModule = CreateShaderModule(compiledVertex);
         const auto fragShaderModule = CreateShaderModule(compiledFrag);
 
+        VkPushConstantRange pushConstantRange{};
+        pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        pushConstantRange.offset = 0;
+        pushConstantRange.size = sizeof(glm::mat4x4);
+
         VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
         vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -985,8 +993,8 @@ namespace Vulkan {
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = 1;
         pipelineLayoutInfo.pSetLayouts = &m_DescriptorSetLayout;
-        pipelineLayoutInfo.pushConstantRangeCount = 0;
-        pipelineLayoutInfo.pPushConstantRanges = nullptr;
+        pipelineLayoutInfo.pushConstantRangeCount = 1;
+        pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
         if (vkCreatePipelineLayout(m_Device, &pipelineLayoutInfo, nullptr, &m_PipelineLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create pipeline layout!");
@@ -1648,12 +1656,16 @@ namespace Vulkan {
     }
 
     void Renderer::SubmitDrawCall(const glm::mat4x4 &worldMatrix, std::uint32_t meshId, std::uint32_t textureId) {
-        // TODO: Use draw queues for submitting draw calls
+        const VkCommandBuffer commandBuffer = m_CommandBuffers[m_CurrentFrame];
 
-        auto *ubo = static_cast<UniformBufferObject *>(m_UniformBuffersMapped[m_CurrentFrame]);
-        ubo->model = worldMatrix;
-
-        VkCommandBuffer commandBuffer = m_CommandBuffers[m_CurrentFrame];
+        vkCmdPushConstants(
+            commandBuffer,
+            m_PipelineLayout,
+            VK_SHADER_STAGE_VERTEX_BIT,
+            0,
+            sizeof(glm::mat4x4),
+            &worldMatrix
+        );
 
         vkCmdDrawIndexed(
             commandBuffer,

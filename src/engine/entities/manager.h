@@ -6,14 +6,14 @@
 #include <vector>
 
 #include "types.h"
-#include "components/entity_component_base.h"
+#include "components_system/component_base.h"
 #include "../utils/entity_utils.h"
 
 using namespace Entities;
 
 constexpr EntityID MAX_ENTITIES = 1'000;
 
-constexpr size_t MAX_COMPONENTS = ComponentType::COUNT;
+constexpr size_t MAX_COMPONENTS = COMPONENTS_COUNT;
 
 
 class EntityManager {

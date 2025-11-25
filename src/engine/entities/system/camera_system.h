@@ -3,9 +3,9 @@
 #include "system.h"
 
 #include "../../renderer/abstract.h"
-#include "../components/component_manager.h"
-#include "../components/transform_component.h"
-#include "../components/camera_component.h"
+#include "../components_system/component_manager.h"
+#include "../components_system/components/transform_component.h"
+#include "../components_system/components/camera_component.h"
 
 
 class CameraSystem final : public SystemBase {

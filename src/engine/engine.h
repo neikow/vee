@@ -7,12 +7,9 @@
 #include <vulkan/vulkan_core.h>
 
 #include "entities/system/system_manager.h"
-#include "entities/components/component_manager.h"
-#include "entities/components/renderable_component.h"
-#include "entities/components/tags/active_camera_tag_component.h"
+#include "entities/components_system/component_manager.h"
 #include "entities/system/camera_system.h"
 #include "entities/system/display_system.h"
-#include "entities/system/movement_system.h"
 #include "models/texture_manager/vulkan_texture_manager.h"
 #include "renderer/abstract.h"
 
@@ -66,7 +63,7 @@ public:
 private:
     void RegisterInternalSystems();
 
-    void RegisterInternalComponents();
+    void RegisterInternalComponents() const;
 };
 
 #endif //GAME_ENGINE_ENGINE_H

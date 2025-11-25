@@ -1,5 +1,10 @@
 #include "engine.h"
 
+#include "entities/components_system/components/renderable_component.h"
+#include "entities/components_system/components/velocity_component.h"
+#include "entities/components_system/tags/active_camera_tag_component.h"
+#include "entities/system/movement_system.h"
+
 void Engine::Initialize(const int width, const int height, const std::string &appName, const uint32_t version) const {
     m_Renderer->Initialize(width, height, appName, version);
 }
@@ -80,7 +85,7 @@ void Engine::RegisterInternalSystems() {
     m_SystemManager->SetSignature<MovementSystem>(movementSignature);
 }
 
-void Engine::RegisterInternalComponents() {
+void Engine::RegisterInternalComponents() const {
     m_ComponentManager->RegisterComponent<TransformComponent>();
     m_ComponentManager->RegisterComponent<VelocityComponent>();
     m_ComponentManager->RegisterComponent<RenderableComponent>();

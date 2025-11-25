@@ -5,6 +5,45 @@ set(ENGINE_EXEC "vee_engine")
 set(EDITOR_EXEC "vee_editor")
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+include(FetchContent)
+
+# ----------------------------------------------------
+# 1. External Dependency Definitions (FetchContent)
+# ----------------------------------------------------
+
+# yaml-cpp (Full CMake Project)
+FetchContent_Declare(
+        yaml-cpp
+        GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+        GIT_TAG master
+)
+FetchContent_MakeAvailable(yaml-cpp)
+
+# ImGui (Manual Target Creation needed for Vulkan backends)
+FetchContent_Declare(
+        imgui
+        GIT_REPOSITORY https://github.com/ocornut/imgui.git
+        GIT_TAG v1.92.5-docking
+)
+FetchContent_GetProperties(imgui)
+if (NOT imgui_POPULATED)
+    FetchContent_MakeAvailable(imgui)
+endif ()
+
+# tinyobjloader (Header-Only with Optional Source)
+FetchContent_Declare(
+        tinyobjloader
+        GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
+        GIT_TAG v2.0.0rc13
+)
+# Note: tinyobjloader is now available if it has a CMake file, otherwise we handle it like stb
+FetchContent_MakeAvailable(tinyobjloader)
+
+# ----------------------------------------------------
+# 2. Find and Configure System Dependencies
+# ----------------------------------------------------
 
 find_package(glfw3 3.4 REQUIRED)
 find_package(glm REQUIRED)
@@ -13,65 +52,55 @@ find_package(Vulkan REQUIRED)
 find_path(SHADERC_INCLUDE_DIR NAMES shaderc/shaderc.h HINTS /opt/homebrew/include /usr/local/include)
 find_library(SHADERC_LIB NAMES shaderc_shared shaderc_combined shaderc HINTS /opt/homebrew/lib /usr/local/lib)
 
-FILE(GLOB_RECURSE ENGINE_SOURCE_FILES src/engine/*.cpp)
-FILE(GLOB_RECURSE ENGINE_HEADER_FILES src/engine/*.h)
-FILE(GLOB_RECURSE EDITOR_SOURCE_FILES src/editor/*.cpp)
-FILE(GLOB_RECURSE EDITOR_HEADER_FILES src/editor/*.h)
-FILE(GLOB_RECURSE EXTERNAL_SOURCE_FILES
-        external/stb/*.cpp
-        external/tinyobjectloader/*.cpp
-        external/imgui/*.cpp
-        external/imgui/backends/*.cpp
-)
-FILE(GLOB_RECURSE EXTERNAL_HEADER_FILES
-        external/stb/*.h
-        external/tinyobjectloader/*.h
-        external/imgui/*.h
-        external/imgui/backends/*.h
-)
-
-SET(EXTERNAL_DIRS
-        external/stb
-        external/tinyobjectloader
-        external/imgui
-        external/imgui/backends
-)
-
-SET(ENGINE_FILES
-        ${ENGINE_SOURCE_FILES}
-        ${ENGINE_HEADER_FILES}
-)
-SET(EDITOR_FILES
-        ${EDITOR_SOURCE_FILES}
-        ${EDITOR_HEADER_FILES}
-)
-SET(EXTERNAL_FILES
-        ${EXTERNAL_SOURCE_FILES}
-        ${EXTERNAL_HEADER_FILES}
-)
-
-add_executable(${ENGINE_EXEC} engine.cpp ${ENGINE_FILES} ${EXTERNAL_FILES})
-add_executable(${EDITOR_EXEC} editor.cpp ${ENGINE_FILES} ${EDITOR_FILES} ${EXTERNAL_FILES})
-
-target_include_directories(
-        ${ENGINE_EXEC} PRIVATE ${EXTERNAL_DIRS}
-)
-target_include_directories(
-        ${EDITOR_EXEC} PRIVATE ${EXTERNAL_DIRS}
-)
-
 if (NOT SHADERC_LIB)
     message(FATAL_ERROR "shaderc library not found. Install shaderc (Homebrew: `brew install shaderc`) or set SHADERC_LIB manually.")
 endif ()
 
-if (SHADERC_INCLUDE_DIR)
-    target_include_directories(${ENGINE_EXEC} PRIVATE ${SHADERC_INCLUDE_DIR})
-    target_include_directories(${EDITOR_EXEC} PRIVATE ${SHADERC_INCLUDE_DIR})
-endif ()
+# ----------------------------------------------------
+# 3. Create Custom Targets for ImGui and STB
+# ----------------------------------------------------
+
+add_library(ImGui STATIC
+        "${imgui_SOURCE_DIR}/imgui.cpp"
+        "${imgui_SOURCE_DIR}/imgui_draw.cpp"
+        "${imgui_SOURCE_DIR}/imgui_widgets.cpp"
+        "${imgui_SOURCE_DIR}/imgui_tables.cpp"
+        "${imgui_SOURCE_DIR}/imgui_demo.cpp"
+        "${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp"
+        "${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp"
+)
+target_include_directories(ImGui PUBLIC
+        "${imgui_SOURCE_DIR}"
+        "${imgui_SOURCE_DIR}/backends"
+)
+
+# ----------------------------------------------------
+# 4. Source Files and Executables
+# ----------------------------------------------------
+
+# Note: Keeping the manual globs for *your own* engine/editor files is fine.
+FILE(GLOB_RECURSE ENGINE_SOURCE_FILES src/engine/*.cpp)
+FILE(GLOB_RECURSE EDITOR_SOURCE_FILES src/editor/*.cpp)
+FILE(GLOB_RECURSE EXTERNAL_SOURCE_FILES external/stb/*.cpp)
+
+SET(EXTERNAL_DIRS external/stb)
+
+add_executable(${ENGINE_EXEC} engine.cpp ${ENGINE_SOURCE_FILES} ${EXTERNAL_SOURCE_FILES})
+add_executable(${EDITOR_EXEC} editor.cpp ${ENGINE_SOURCE_FILES} ${EDITOR_SOURCE_FILES} ${EXTERNAL_SOURCE_FILES})
+
+# ----------------------------------------------------
+# 5. Link Dependencies
+# ----------------------------------------------------
 
 SET(EXECUTABLES ${ENGINE_EXEC} ${EDITOR_EXEC})
 
+target_link_libraries(ImGui PRIVATE glfw)
+
 foreach (EXECUTABLE ${EXECUTABLES})
+    target_include_directories(${EXECUTABLE} PRIVATE
+            ${SHADERC_INCLUDE_DIR} ${EXTERNAL_DIRS}
+    )
+
     target_link_libraries(${EXECUTABLE} PRIVATE
             ${SHADERC_LIB}
             glfw
@@ -80,5 +109,9 @@ foreach (EXECUTABLE ${EXECUTABLES})
             "-framework Metal"
             "-framework Foundation"
             "-framework QuartzCore"
+
+            yaml-cpp::yaml-cpp
+            tinyobjloader
+            ImGui
     )
 endforeach ()

@@ -15,10 +15,13 @@
 
 #include "src/editor/editor.h"
 
-#include "src/editor/renderer/vulkan/vulkan_renderer_with_ui.h"
 #include "src/engine/engine.h"
 #include "src/engine/models/mesh_manager/vulkan_mesh_manager.h"
 #include "src/engine/renderer/vulkan/vulkan_renderer.h"
+#include "src/editor/renderer/vulkan/vulkan_renderer_with_ui.h"
+#include "src/engine/entities/components_system/components/renderable_component.h"
+#include "src/engine/entities/components_system/components/velocity_component.h"
+#include "src/engine/entities/components_system/tags/active_camera_tag_component.h"
 
 
 constexpr uint32_t WIDTH = 1920;

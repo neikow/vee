@@ -2,9 +2,9 @@
 #define GAME_ENGINE_MOVEMENT_SYSTEM_H
 
 #include "system.h"
-#include "../components/component_manager.h"
-#include "../components/transform_component.h"
-#include "../components/velocity_component.h"
+#include "../components_system/component_manager.h"
+#include "../components_system/components/transform_component.h"
+#include "../components_system/components/velocity_component.h"
 
 
 struct VelocityComponent;

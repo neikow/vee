@@ -1,11 +1,11 @@
 #include "display_system.h"
 
 #include "../../utils/math_utils.h"
-#include "../components/transform_component.h"
-#include "../components/camera_component.h"
-#include "../components/renderable_component.h"
-#include "../components/component_manager.h"
-#include "../components/tags/active_camera_tag_component.h"
+#include "../components_system/components/transform_component.h"
+#include "../components_system/components/camera_component.h"
+#include "../components_system/components/renderable_component.h"
+#include "../components_system/component_manager.h"
+#include "../components_system/tags/active_camera_tag_component.h"
 
 std::optional<EntityID> GetActiveCameraEntityId(
     const std::shared_ptr<EntityManager> &entityManager

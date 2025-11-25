@@ -1,5 +1,7 @@
 #include "vulkan_renderer_with_ui.h"
 
+#include <iostream>
+
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
@@ -12,24 +14,14 @@ void Vulkan::RendererWithUi::Initialize(
 ) {
     m_CoreRenderer->Initialize(width, height, appName, version);
     InitImgui();
+    m_CoreRenderer->ToggleRenderMode(RenderMode::EDITOR);
 }
 
-void Vulkan::RendererWithUi::BeginFrame() {
-    m_CoreRenderer->BeginFrame();
-
+void Vulkan::RendererWithUi::Draw() {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
-}
 
-void Vulkan::RendererWithUi::EndFrame() {
-    if (m_DrawData) {
-        Renderer::RecordUiDrawData(
-            m_CoreRenderer->m_CommandBuffers[m_CoreRenderer->m_CurrentFrame],
-            m_DrawData
-        );
-        m_DrawData = nullptr;
-    }
-    m_CoreRenderer->EndFrame();
+    m_CoreRenderer->Draw();
 }
 
 void Vulkan::RendererWithUi::SubmitUIDrawData(ImDrawData *drawData) {
@@ -40,14 +32,23 @@ void Vulkan::RendererWithUi::UpdateCameraMatrix(const glm::mat4x4 &viewMatrix, c
     m_CoreRenderer->UpdateCameraMatrix(viewMatrix, projectionMatrix);
 }
 
-void Vulkan::RendererWithUi::SubmitDrawCall(const glm::mat4x4 &worldMatrix, std::uint32_t meshId,
-                                            std::uint32_t textureId) {
+void Vulkan::RendererWithUi::SubmitDrawCall(
+    const glm::mat4x4 &worldMatrix,
+    std::uint32_t const meshId,
+    const std::uint32_t textureId
+) {
+    m_CoreRenderer->SubmitDrawCall(
+        worldMatrix, meshId, textureId
+    );
 }
 
 void Vulkan::RendererWithUi::Cleanup() {
+    // This is a hack as the current architecture does not provide a way to destroy the viewport resources
+    // before destroying ImGui resources.
+    m_CoreRenderer->ToggleRenderMode(RenderMode::ENGINE);
+
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
 
     vkDestroyDescriptorPool(
         m_CoreRenderer->GetDevice(),
@@ -56,6 +57,8 @@ void Vulkan::RendererWithUi::Cleanup() {
     );
 
     m_CoreRenderer->Cleanup();
+
+    ImGui::DestroyContext();
 }
 
 bool Vulkan::RendererWithUi::ShouldClose() {
@@ -68,6 +71,10 @@ void Vulkan::RendererWithUi::WaitIdle() {
 
 float Vulkan::RendererWithUi::GetAspectRatio() {
     return m_CoreRenderer->GetAspectRatio();
+}
+
+void Vulkan::RendererWithUi::UpdateViewportSize(const uint32_t width, const uint32_t height) const {
+    m_CoreRenderer->UpdateViewportSize(width, height);
 }
 
 void Vulkan::RendererWithUi::InitImgui() {

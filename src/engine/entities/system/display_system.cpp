@@ -42,11 +42,8 @@ bool DisplaySystem::PrepareCamera() const {
 }
 
 void DisplaySystem::Render(float interpolationFactor) const {
-    m_Renderer->BeginFrame();
-
-    // Prepare Camera
     if (!PrepareCamera()) {
-        m_Renderer->EndFrame();
+        m_Renderer->Draw();
         return;
     };
 
@@ -71,5 +68,5 @@ void DisplaySystem::Render(float interpolationFactor) const {
         );
     }
 
-    m_Renderer->EndFrame();
+    m_Renderer->Draw();
 }

@@ -22,9 +22,7 @@ namespace Vulkan {
 
         void Initialize(int width, int height, const std::string &appName, uint32_t version) override;
 
-        void BeginFrame() override;
-
-        void EndFrame() override;;
+        void Draw() override;;
 
         void SubmitUIDrawData(ImDrawData *drawData) override;
 
@@ -39,6 +37,12 @@ namespace Vulkan {
         void WaitIdle() override;
 
         float GetAspectRatio() override;
+
+        [[nodiscard]] VkDescriptorSet GetViewportDescriptorSet() const {
+            return m_CoreRenderer->GetViewportDescriptorSet();
+        }
+
+        void UpdateViewportSize(uint32_t width, uint32_t height) const;
 
     private:
         void InitImgui();

@@ -13,6 +13,10 @@ class Editor {
 
     void DrawInspector();
 
+    void DrawViewport();
+
+    void DrawAssetManager();
+
 public:
     explicit Editor(const std::shared_ptr<Engine> &engine)
         : m_Engine(engine) {

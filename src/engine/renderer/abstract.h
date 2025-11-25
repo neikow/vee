@@ -12,9 +12,7 @@ public:
 
     virtual void Initialize(int width, int height, const std::string &appName, uint32_t version) = 0;
 
-    virtual void BeginFrame() = 0;
-
-    virtual void EndFrame() = 0;
+    virtual void Draw() = 0;
 
     virtual void UpdateCameraMatrix(
         const glm::mat4x4 &viewMatrix,
@@ -36,7 +34,6 @@ public:
     virtual float GetAspectRatio() = 0;
 
     virtual void SubmitUIDrawData(ImDrawData *drawData) = 0;
-
 
     virtual ~AbstractRenderer() = default;
 };

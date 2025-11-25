@@ -5,13 +5,19 @@ void Engine::Initialize(const int width, const int height, const std::string &ap
 }
 
 void Engine::Update(const float deltaTime) const {
-    m_SystemManager->UpdateSystems(deltaTime);
+    if (!m_Paused) {
+        m_SystemManager->UpdateSystems(deltaTime);
+    }
     m_DisplaySystem->Render(0.01f);
 }
 
 void Engine::Shutdown() const {
     m_Renderer->WaitIdle();
     m_Renderer->Cleanup();
+}
+
+bool Engine::Paused() const {
+    return m_Paused;
 }
 
 bool Engine::ShouldQuit() const {
@@ -25,6 +31,20 @@ std::shared_ptr<AbstractRenderer> Engine::GetRenderer() const {
 EntityID Engine::CreateEntity() const {
     return m_EntityManager->CreateEntity();
 }
+
+void Engine::Pause() {
+    m_Paused = true;
+}
+
+void Engine::Resume() {
+    m_Paused = false;
+}
+
+void Engine::Reset() {
+    m_Paused = false;
+    // TODO: Implement reset
+}
+
 
 void Engine::RegisterInternalSystems() {
     Signature renderableSignature;

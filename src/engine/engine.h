@@ -18,6 +18,7 @@
 
 class Engine {
     bool m_ShouldQuit = false;
+    bool m_Paused = false;
 
     std::shared_ptr<Vulkan::TextureManager> m_TextureManager;
     std::shared_ptr<DisplaySystem> m_DisplaySystem;
@@ -48,11 +49,19 @@ public:
 
     void Shutdown() const;
 
+    [[nodiscard]] bool Paused() const;
+
     [[nodiscard]] bool ShouldQuit() const;
 
     [[nodiscard]] std::shared_ptr<AbstractRenderer> GetRenderer() const;
 
     [[nodiscard]] EntityID CreateEntity() const;
+
+    void Pause();
+
+    void Resume();
+
+    void Reset();
 
 private:
     void RegisterInternalSystems();

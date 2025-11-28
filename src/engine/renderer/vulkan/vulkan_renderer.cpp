@@ -12,7 +12,7 @@
 #include "tiny_obj_loader.h"
 #include "types.h"
 #include "utils.h"
-#include "vertex.h"
+#include "vertex_utils.h"
 #include "../../engine.h"
 #include "../../shaders/compile.h"
 
@@ -253,10 +253,10 @@ namespace Vulkan {
     }
 
     void Renderer::CreateDescriptorSets() {
-        if (!m_TextureManager) {
+        if (!GetTextureManager()) {
             throw std::runtime_error("CreateDescriptorSets called but m_TextureManager is null");
         }
-        m_TextureManager->CreateResources();
+        GetTextureManager()->CreateResources();
 
         const std::vector layouts(MAX_FRAMES_IN_FLIGHT, m_DescriptorSetLayout);
 
@@ -281,7 +281,7 @@ namespace Vulkan {
 
             for (uint32_t j = 0; j < MAX_TEXTURES; ++j) {
                 textureInfos[j].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                textureInfos[j].imageView = m_TextureManager->GetImageView(j);
+                textureInfos[j].imageView = GetTextureManager()->GetImageView(j);
                 textureInfos[j].sampler = m_TextureSampler;
             }
 
@@ -359,7 +359,7 @@ namespace Vulkan {
     }
 
     void Renderer::CreateIndexBuffer() {
-        const auto indices = m_ModelManager->GetMeshIndicesArray();
+        const auto indices = GetMeshManager()->GetMeshIndicesArray();
         const VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -409,7 +409,7 @@ namespace Vulkan {
     }
 
     void Renderer::CreateVertexBuffer() {
-        const auto vertices = m_ModelManager->GetMeshVerticesArray();
+        const auto vertices = GetMeshManager()->GetMeshVerticesArray();
         const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
         VkBuffer stagingBuffer;
@@ -889,8 +889,8 @@ namespace Vulkan {
         dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
         dynamicState.pDynamicStates = dynamicStates.data();
 
-        auto bindingDescription = Vertex::getBindingDescription();
-        auto attributeDescriptions = Vertex::getAttributeDescriptions();
+        auto bindingDescription = VertexUtils::getBindingDescription();
+        auto attributeDescriptions = VertexUtils::getAttributeDescriptions();
 
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -1521,7 +1521,7 @@ namespace Vulkan {
                 &pushData
             );
 
-            const auto info = m_ModelManager->GetMeshInfo(drawCall.meshId);
+            const auto info = GetMeshManager()->GetMeshInfo(drawCall.meshId);
 
             vkCmdDrawIndexed(
                 commandBuffer,
@@ -1592,7 +1592,7 @@ namespace Vulkan {
                 0, sizeof(PushData), &pushData
             );
 
-            const auto info = m_ModelManager->GetMeshInfo(drawCall.meshId);
+            const auto info = GetMeshManager()->GetMeshInfo(drawCall.meshId);
             vkCmdDrawIndexed(commandBuffer, info.indexCount, 1, info.indexOffset, info.vertexOffset, 0);
         }
 
@@ -1779,7 +1779,7 @@ namespace Vulkan {
 
         vkDestroySampler(m_Device, m_TextureSampler, nullptr);
 
-        m_TextureManager->Cleanup();
+        GetTextureManager()->Cleanup();
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroyBuffer(m_Device, m_UniformBuffers[i], nullptr);
@@ -1817,8 +1817,8 @@ namespace Vulkan {
     }
 
     void Renderer::Reset() {
-        m_ModelManager->Reset();
-        m_TextureManager->Reset();
+        GetMeshManager()->Reset();
+        GetTextureManager()->Reset();
     }
 
 

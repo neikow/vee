@@ -4,61 +4,28 @@
 #include <vulkan/vulkan_core.h>
 
 #include "imgui.h"
-#include "../../../engine/renderer/abstract.h"
 #include "../../../engine/renderer/vulkan/vulkan_renderer.h"
 
 namespace Vulkan {
     class Renderer;
 
-    class RendererWithUi final : public AbstractRenderer {
-        std::shared_ptr<Renderer> m_CoreRenderer;
+    class RendererWithUi final : public Renderer {
         ImDrawData *m_DrawData = nullptr;
         VkDescriptorPool m_ImguiDescriptorPool = VK_NULL_HANDLE;
 
     public:
-        explicit RendererWithUi(const std::shared_ptr<Renderer> &renderer)
-            : m_CoreRenderer(renderer) {
-        }
+        RendererWithUi() = default;
 
         void Initialize(int width, int height, const std::string &appName, uint32_t version) override;
 
-        void Draw() override;;
+        void Draw() override;
 
         void SubmitUIDrawData(ImDrawData *drawData) override;
 
-        void UpdateCameraMatrix(const glm::mat4x4 &viewMatrix, const glm::mat4x4 &projectionMatrix) override;;
-
-        void SubmitDrawCall(const glm::mat4x4 &worldMatrix, std::uint32_t meshId, std::uint32_t textureId) override;
-
         void Cleanup() override;
-
-        bool ShouldClose() override;
-
-        void WaitIdle() override;
-
-        float GetAspectRatio() override;
-
-        [[nodiscard]] VkDescriptorSet GetViewportDescriptorSet() const {
-            return m_CoreRenderer->GetViewportDescriptorSet();
-        }
-
-        void UpdateViewportSize(uint32_t width, uint32_t height) const;
-
-        void Reset() override {
-            m_CoreRenderer->Reset();
-        };
 
     private:
         void InitImgui();
-
-    public:
-        [[nodiscard]] std::shared_ptr<IMeshManager<Vertex> > GetMeshManager() const override {
-            return m_CoreRenderer->GetMeshManager();
-        }
-
-        [[nodiscard]] std::shared_ptr<ITextureManager> GetTextureManager() const override {
-            return m_CoreRenderer->GetTextureManager();
-        }
     };
 }
 

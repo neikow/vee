@@ -7,7 +7,6 @@
 #include "renderer/vulkan/vulkan_renderer_with_ui.h"
 bool show_demo_window = true;
 
-// cpp
 void Editor::DrawSceneHierarchy() {
     ImGui::Begin("Scene Hierarchy");
 

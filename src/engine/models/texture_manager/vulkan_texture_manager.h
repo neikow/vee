@@ -7,6 +7,8 @@
 #include "abstract_texture_manager.h"
 #include "stb_image.h"
 
+class AbstractRenderer;
+
 namespace Vulkan {
     class Renderer;
 
@@ -22,17 +24,14 @@ namespace Vulkan {
     };
 
     class TextureManager final : public ITextureManager {
-        std::shared_ptr<Renderer> m_Renderer = nullptr;
+        AbstractRenderer *m_Renderer = nullptr;
         std::map<TextureId, TextureInfo> m_TextureCatalog;
         TextureId m_NextTextureID = 0;
 
         TextureInfo m_DefaultTexture{};
 
     public:
-        TextureManager() = default;
-
-        void BindRenderer(const std::shared_ptr<Renderer> &renderer) {
-            m_Renderer = renderer;
+        explicit TextureManager(AbstractRenderer *renderer) : m_Renderer(renderer) {
         }
 
         TextureId LoadTexture(TextureId textureId, const std::string &texturePath) override;

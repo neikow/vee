@@ -80,7 +80,7 @@ void DeserializeComponentV0(
         throw std::runtime_error("Invalid component node");
     }
 
-    const std::string typeStr = componentType.as<std::string>();
+    const auto typeStr = componentType.as<std::string>();
     const auto componentManager = scenePtr->GetComponentManager();
 
     if (typeStr == "TransformComponent") {
@@ -130,6 +130,8 @@ void DeserializeSceneV0(
         for (auto entityNode: entities) {
             DeserializeEntityV0(entityNode, scenePtr);
         }
+    } else {
+        std::cerr << "[WARN] No entities found in scene." << std::endl;
     }
     if (const auto meshes = data["meshes"]) {
         const auto renderer = scenePtr->GetRenderer();
@@ -137,6 +139,8 @@ void DeserializeSceneV0(
             const auto meshPath = meshNode["path"].as<std::string>();
             renderer->GetMeshManager()->LoadModel(meshPath);
         }
+    } else {
+        std::cerr << "[WARN] No meshes found in scene data." << std::endl;
     }
     if (const auto textures = data["textures"]) {
         const auto renderer = scenePtr->GetRenderer();
@@ -145,6 +149,8 @@ void DeserializeSceneV0(
             const auto texturePath = textureNode["path"].as<std::string>();
             renderer->GetTextureManager()->LoadTexture(textureId, texturePath);
         }
+    } else {
+        std::cerr << "[WARN] No textures found in scene data." << std::endl;
     }
 }
 

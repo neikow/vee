@@ -14,14 +14,17 @@ class SceneManager {
     std::shared_ptr<Engine> m_Engine;
 
 public:
-    explicit SceneManager(const std::shared_ptr<Engine> &engine) : m_Engine(engine) {
+    explicit SceneManager(
+        const std::shared_ptr<Engine> &engine
+    )
+        : m_Engine(engine) {
     }
 
     ~SceneManager() = default;
 
     void NewEmptyScene();
 
-    [[nodiscard]] std::vector<SceneData> ListScenes() const;
+    [[nodiscard]] static std::vector<SceneData> ListScenes();
 
     void LoadScene(const std::string &path);
 

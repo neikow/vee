@@ -1,20 +1,33 @@
 #ifndef GAME_ENGINE_ABSTRACT_H
 #define GAME_ENGINE_ABSTRACT_H
-#include <cstdint>
 #include <glm/mat4x4.hpp>
 
 #include "imgui.h"
-#include "../models/mesh_manager/abstract_mesh_manager.h"
+#include "../models/mesh_manager/mesh_manager.h"
 #include "../models/texture_manager/vulkan_texture_manager.h"
-#include "vulkan/vertex.h"
-
 
 class AbstractRenderer {
+    std::shared_ptr<MeshManager> m_MeshManager;
+    std::shared_ptr<Vulkan::TextureManager> m_TextureManager;
+
 protected:
     bool m_Initialized = false;
 
 public:
-    AbstractRenderer() = default;
+    AbstractRenderer() : m_MeshManager(std::make_shared<MeshManager>()),
+                         m_TextureManager(
+                             std::make_shared<Vulkan::TextureManager>(this)
+                         ) {
+    };
+
+    [[nodiscard]] std::shared_ptr<MeshManager> GetMeshManager() const {
+        return m_MeshManager;
+    }
+
+    [[nodiscard]] std::shared_ptr<Vulkan::TextureManager> GetTextureManager() const {
+        ;
+        return m_TextureManager;
+    }
 
     virtual void Initialize(int width, int height, const std::string &appName, uint32_t version) = 0;
 
@@ -46,10 +59,6 @@ public:
     virtual float GetAspectRatio() = 0;
 
     virtual void SubmitUIDrawData(ImDrawData *drawData) = 0;
-
-    [[nodiscard]] virtual std::shared_ptr<IMeshManager<Vulkan::Vertex> > GetMeshManager() const = 0;
-
-    [[nodiscard]] virtual std::shared_ptr<ITextureManager> GetTextureManager() const = 0;
 
     virtual ~AbstractRenderer() = default;
 };

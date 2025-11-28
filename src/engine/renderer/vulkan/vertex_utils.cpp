@@ -1,11 +1,9 @@
-#include "vertex.h"
+#include "vertex_utils.h"
+
+#include "../base_vertex.h"
 
 namespace Vulkan {
-    bool Vertex::operator==(const Vertex &other) const {
-        return pos == other.pos && color == other.color && texCoord == other.texCoord;
-    }
-
-    VkVertexInputBindingDescription Vertex::getBindingDescription() {
+    VkVertexInputBindingDescription VertexUtils::getBindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
         bindingDescription.binding = 0;
         bindingDescription.stride = sizeof(Vertex);
@@ -14,7 +12,7 @@ namespace Vulkan {
         return bindingDescription;
     }
 
-    std::array<VkVertexInputAttributeDescription, 3> Vertex::getAttributeDescriptions() {
+    std::array<VkVertexInputAttributeDescription, 3> VertexUtils::getAttributeDescriptions() {
         std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
 
         attributeDescriptions[0].binding = 0;

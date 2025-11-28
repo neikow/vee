@@ -2,9 +2,8 @@
 #define VEE_SCENE_H
 #include "../entities/manager.h"
 #include "../entities/components_system/component_manager.h"
+#include "../entities/system/display_system.h"
 #include "../renderer/vulkan/vulkan_renderer.h"
-
-class DisplaySystem;
 
 namespace Vulkan {
     class TextureManager;
@@ -56,7 +55,7 @@ public:
         return m_DisplaySystem;
     }
 
-    EntityID CreateEntity() const {
+    [[nodiscard]] EntityID CreateEntity() const {
         return m_EntityManager->CreateEntity();
     }
 

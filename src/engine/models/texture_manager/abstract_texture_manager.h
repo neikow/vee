@@ -1,9 +1,8 @@
 #ifndef VEE_ABSTRACT_TEXTURE_MANAGER_H
 #define VEE_ABSTRACT_TEXTURE_MANAGER_H
-#include "vulkan_texture_manager.h"
+#include <string>
 
-
-using TextureId = uint32_t;
+using TextureId = std::uint32_t;
 
 class ITextureManager {
 public:

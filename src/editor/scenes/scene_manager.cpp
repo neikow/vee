@@ -35,7 +35,7 @@ SceneData ParseSceneFile(const std::string &filePath) {
     return sceneData;
 }
 
-std::vector<SceneData> SceneManager::ListScenes() const {
+std::vector<SceneData> SceneManager::ListScenes() {
     dirent *en;
     const std::string dir_path = "../.editor_data/scenes/";
     DIR *dir = opendir(dir_path.c_str());

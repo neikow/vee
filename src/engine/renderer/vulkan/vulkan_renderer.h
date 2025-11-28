@@ -6,9 +6,9 @@
 #include <vulkan/vulkan_core.h>
 
 #include "types.h"
-#include "vertex.h"
+#include "vertex_utils.h"
 #include "../abstract.h"
-#include "../../models/mesh_manager/vulkan_mesh_manager.h"
+#include "../../models/mesh_manager/mesh_manager.h"
 #include "../../models/texture_manager/vulkan_texture_manager.h"
 
 namespace Vulkan {
@@ -25,7 +25,7 @@ namespace Vulkan {
         std::uint32_t textureId;
     };
 
-    class Renderer final : AbstractRenderer {
+    class Renderer : public AbstractRenderer {
         friend class TextureManager;
         friend class RendererWithUi;
 
@@ -33,9 +33,6 @@ namespace Vulkan {
 
         GLFWwindow *m_Window = nullptr;
         bool m_FramebufferResized = false;
-
-        std::shared_ptr<MeshManager> m_ModelManager;
-        std::shared_ptr<TextureManager> m_TextureManager;
 
         VkInstance m_Instance = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT m_DebugMessenger = VK_NULL_HANDLE;
@@ -99,14 +96,7 @@ namespace Vulkan {
         uint32_t m_ImageIndex = 0;
 
     public:
-        explicit Renderer(const std::shared_ptr<MeshManager> &modelManager,
-                          const std::shared_ptr<TextureManager> &textureManager)
-            : m_ModelManager(modelManager),
-              m_TextureManager(textureManager) {
-            textureManager->BindRenderer(
-                std::shared_ptr<Renderer>(this)
-            );
-        }
+        Renderer() = default;
 
         void Initialize(int width, int height, const std::string &appName, uint32_t version) override;
 
@@ -250,16 +240,8 @@ namespace Vulkan {
 
         void CleanupViewportResources() const;
 
-        [[nodiscard]] VkDescriptorSet GetViewportDescriptorSet() const;
-
     public:
-        [[nodiscard]] std::shared_ptr<IMeshManager<Vertex> > GetMeshManager() const override {
-            return m_ModelManager;
-        };
-
-        [[nodiscard]] std::shared_ptr<ITextureManager> GetTextureManager() const override {
-            return std::static_pointer_cast<ITextureManager>(m_TextureManager);
-        };
+        [[nodiscard]] VkDescriptorSet GetViewportDescriptorSet() const;
     };
 }
 

@@ -4,11 +4,11 @@
 #include <string>
 #include <vulkan/vulkan.h>
 
+#include "abstract_texture_manager.h"
 #include "stb_image.h"
 
 namespace Vulkan {
     class Renderer;
-    using TextureId = uint32_t;
 
     struct TextureInfo {
         VkImage image = VK_NULL_HANDLE;
@@ -21,7 +21,7 @@ namespace Vulkan {
         VkDeviceSize imageSize = 0;
     };
 
-    class TextureManager {
+    class TextureManager final : public ITextureManager {
         std::shared_ptr<Renderer> m_Renderer = nullptr;
         std::map<TextureId, TextureInfo> m_TextureCatalog;
         TextureId m_NextTextureID = 0;
@@ -35,15 +35,19 @@ namespace Vulkan {
             m_Renderer = renderer;
         }
 
-        TextureId LoadTexture(const std::string &texturePath);
+        TextureId LoadTexture(TextureId textureId, const std::string &texturePath) override;
+
+        TextureId LoadTexture(const std::string &texturePath) override;
 
         void CreateResources();
 
-        VkImageView GetImageView(TextureId textureId) const;
+        [[nodiscard]] VkImageView GetImageView(TextureId textureId) const;
 
-        VkSampler GetSampler() const;
+        [[nodiscard]] VkSampler GetSampler() const;
 
-        void Cleanup();
+        void Cleanup() override;
+
+        void Reset() override;
 
     private:
         static void CreateDefaultTexture(const Renderer *renderer, TextureInfo &outInfo);

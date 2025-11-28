@@ -72,12 +72,20 @@ public:
         return Utils::Vectors::FlattenCopy(m_Vertices);
     };
 
-    std::vector<uint32_t> GetMeshIndicesArray() const {
+    [[nodiscard]] std::vector<uint32_t> GetMeshIndicesArray() const {
         return Utils::Vectors::FlattenCopy(m_Indices);
     };
 
-    MeshInfo GetMeshInfo(const ModelId modelId) const {
+    [[nodiscard]] MeshInfo GetMeshInfo(const ModelId modelId) const {
         return m_MeshInfos[modelId];
+    };
+
+    void Reset() {
+        m_Vertices.clear();
+        m_Indices.clear();
+        m_MeshInfos.clear();
+        m_CurrentVertexOffset = 0;
+        m_CurrentIndexOffset = 0;
     };
 
 private:

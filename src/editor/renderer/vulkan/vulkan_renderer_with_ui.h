@@ -44,8 +44,21 @@ namespace Vulkan {
 
         void UpdateViewportSize(uint32_t width, uint32_t height) const;
 
+        void Reset() override {
+            m_CoreRenderer->Reset();
+        };
+
     private:
         void InitImgui();
+
+    public:
+        [[nodiscard]] std::shared_ptr<IMeshManager<Vertex> > GetMeshManager() const override {
+            return m_CoreRenderer->GetMeshManager();
+        }
+
+        [[nodiscard]] std::shared_ptr<ITextureManager> GetTextureManager() const override {
+            return m_CoreRenderer->GetTextureManager();
+        }
     };
 }
 

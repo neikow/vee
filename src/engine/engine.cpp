@@ -1,9 +1,7 @@
 #include "engine.h"
 
-#include "entities/components_system/components/renderable_component.h"
-#include "entities/components_system/components/velocity_component.h"
-#include "entities/components_system/tags/active_camera_tag_component.h"
 #include "entities/system/movement_system.h"
+#include "serialization/scene_serializer.h"
 
 void Engine::Initialize(const int width, const int height, const std::string &appName, const uint32_t version) const {
     m_Renderer->Initialize(width, height, appName, version);
@@ -11,14 +9,18 @@ void Engine::Initialize(const int width, const int height, const std::string &ap
 
 void Engine::Update(const float deltaTime) const {
     if (!m_Paused) {
-        m_SystemManager->UpdateSystems(deltaTime);
+        m_Scene->GetSystemManager()->UpdateSystems(deltaTime);
     }
-    m_DisplaySystem->Render(0.01f);
+    m_Scene->GetDisplaySystem()->Render(0.01f);
 }
 
 void Engine::Shutdown() const {
     m_Renderer->WaitIdle();
     m_Renderer->Cleanup();
+}
+
+void Engine::LoadScene(const std::string &scenePath) {
+    m_Scene = SceneSerializer::LoadScene(scenePath, m_Renderer);
 }
 
 bool Engine::Paused() const {
@@ -33,8 +35,8 @@ std::shared_ptr<AbstractRenderer> Engine::GetRenderer() const {
     return m_Renderer;
 }
 
-EntityID Engine::CreateEntity() const {
-    return m_EntityManager->CreateEntity();
+std::shared_ptr<Scene> Engine::GetScene() {
+    return m_Scene;
 }
 
 void Engine::Pause() {
@@ -48,47 +50,4 @@ void Engine::Resume() {
 void Engine::Reset() {
     m_Paused = false;
     // TODO: Implement reset
-}
-
-
-void Engine::RegisterInternalSystems() {
-    Signature renderableSignature;
-    renderableSignature.set(ComponentTypeHelper<RenderableComponent>::ID);
-    renderableSignature.set(ComponentTypeHelper<TransformComponent>::ID);
-    m_DisplaySystem = m_SystemManager->RegisterSystem<DisplaySystem>(
-        std::make_shared<DisplaySystem>(
-            m_Renderer,
-            m_ComponentManager,
-            m_EntityManager
-        )
-    );
-    m_SystemManager->SetSignature<DisplaySystem>(renderableSignature);
-
-    Signature activeCameraSignature;
-    activeCameraSignature.set(ComponentTypeHelper<CameraComponent>::ID);
-    activeCameraSignature.set(ComponentTypeHelper<ActiveCameraTagComponent>::ID);
-
-    m_SystemManager->RegisterSystem<CameraSystem>(
-        std::make_shared<CameraSystem>(
-            m_Renderer,
-            m_ComponentManager
-        )
-    );
-    m_SystemManager->SetSignature<CameraSystem>(activeCameraSignature);
-
-    Signature movementSignature;
-    movementSignature.set(ComponentTypeHelper<TransformComponent>::ID);
-    movementSignature.set(ComponentTypeHelper<VelocityComponent>::ID);
-    m_SystemManager->RegisterSystem<MovementSystem>(
-        std::make_shared<MovementSystem>(m_ComponentManager)
-    );
-    m_SystemManager->SetSignature<MovementSystem>(movementSignature);
-}
-
-void Engine::RegisterInternalComponents() const {
-    m_ComponentManager->RegisterComponent<TransformComponent>();
-    m_ComponentManager->RegisterComponent<VelocityComponent>();
-    m_ComponentManager->RegisterComponent<RenderableComponent>();
-    m_ComponentManager->RegisterComponent<CameraComponent>();
-    m_ComponentManager->RegisterComponent<ActiveCameraTagComponent>();
 }

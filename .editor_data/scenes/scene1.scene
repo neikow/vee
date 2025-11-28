@@ -1,0 +1,39 @@
+name: Viking Scene
+type: scene
+id: 0
+version: 0
+
+meshes:
+  - id: 0
+    path: "../assets/models/viking_room.obj"
+
+textures:
+  - id: 0
+    path: "../assets/textures/viking_room.png"
+
+entities:
+  - id: 0
+    components:
+      - type: TransformComponent
+        position: [ 0, 0.15, 3.0 ]
+        rotation: [ 1, 0.50, 0, 0 ]
+        scale: [ 1, 1, 1 ]
+      - type: CameraComponent
+        projection: perspective
+        fov: 45.0
+        aspect_ratio: 0.0
+        near_plane: 0.01
+        far_plane: 200
+      - type: ActiveCameraTagComponent
+  - id: 1
+    components:
+      - type: TransformComponent
+        position: [ 0, 0, 0 ]
+        rotation: [ 1, 0, 0, 0 ]
+        scale: [ 1, 1, 1 ]
+      - type: VelocityComponent
+        linear: [ 0, 0, 0 ]
+        angular: [ 0, 0, 1.0 ]
+      - type: RenderableComponent
+        mesh_id: 0
+        texture_id: 0

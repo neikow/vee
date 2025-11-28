@@ -5,13 +5,6 @@
 struct RenderableComponent final {
     std::uint32_t meshId;
     std::uint32_t textureId;
-
-    RenderableComponent(
-        const std::uint32_t meshId,
-        const std::uint32_t textureId
-    ) : meshId(meshId),
-        textureId(textureId) {
-    }
 };
 
 

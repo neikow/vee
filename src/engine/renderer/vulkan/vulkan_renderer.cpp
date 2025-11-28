@@ -1471,6 +1471,7 @@ namespace Vulkan {
     ) {
         InitWindow(width, height, appName);
         InitVulkan(appName, version);
+        m_Initialized = true;
     }
 
     void Renderer::RecreateSwapChain() {
@@ -1814,6 +1815,12 @@ namespace Vulkan {
 
         glfwTerminate();
     }
+
+    void Renderer::Reset() {
+        m_ModelManager->Reset();
+        m_TextureManager->Reset();
+    }
+
 
     bool Renderer::ShouldClose() {
         return glfwWindowShouldClose(m_Window);

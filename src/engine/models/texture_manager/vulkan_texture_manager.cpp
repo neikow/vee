@@ -9,7 +9,7 @@
 namespace Vulkan {
     static constexpr uint8_t DEFAULT_WHITE_PIXEL[4] = {255, 255, 255, 255};
 
-    TextureId TextureManager::LoadTexture(const std::string &texturePath) {
+    TextureInfo ParseTexture(const std::string &texturePath) {
         int texWidth, texHeight, texChannels;
         stbi_uc *pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         const VkDeviceSize imageSize = static_cast<VkDeviceSize>(texWidth) * texHeight * 4;
@@ -18,16 +18,25 @@ namespace Vulkan {
             throw std::runtime_error("Failed to load texture image from: " + texturePath);
         }
 
-        TextureInfo info;
-        info.pixels = pixels;
-        info.width = texWidth;
-        info.height = texHeight;
-        info.imageSize = imageSize;
+        return {
+            .pixels = pixels,
+            .width = texWidth,
+            .height = texHeight,
+            .imageSize = imageSize
+        };
+    }
 
+    TextureId TextureManager::LoadTexture(const std::string &texturePath) {
         const TextureId newID = m_NextTextureID++;
-        m_TextureCatalog[newID] = info;
+        m_TextureCatalog[newID] = ParseTexture(texturePath);
 
         return newID;
+    }
+
+    TextureId TextureManager::LoadTexture(const TextureId textureId, const std::string &texturePath) {
+        m_TextureCatalog[textureId] = ParseTexture(texturePath);
+
+        return textureId;
     }
 
     void TextureManager::CreateDefaultTexture(const Renderer *renderer, TextureInfo &outInfo) {
@@ -162,6 +171,12 @@ namespace Vulkan {
             vkFreeMemory(m_Renderer->m_Device, m_DefaultTexture.imageMemory, nullptr);
             m_DefaultTexture.imageMemory = VK_NULL_HANDLE;
         }
+    }
+
+    void TextureManager::Reset() {
+        Cleanup();
+        m_NextTextureID = 0;
+        m_Renderer->CreateDescriptorSets();
     }
 
     VkImageView TextureManager::GetImageView(const TextureId textureId) const {

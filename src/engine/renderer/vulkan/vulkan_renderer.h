@@ -123,6 +123,8 @@ namespace Vulkan {
 
         void Cleanup() override;
 
+        void Reset() override;
+
         bool ShouldClose() override;
 
         void WaitIdle() override;
@@ -249,6 +251,15 @@ namespace Vulkan {
         void CleanupViewportResources() const;
 
         [[nodiscard]] VkDescriptorSet GetViewportDescriptorSet() const;
+
+    public:
+        [[nodiscard]] std::shared_ptr<IMeshManager<Vertex> > GetMeshManager() const override {
+            return m_ModelManager;
+        };
+
+        [[nodiscard]] std::shared_ptr<ITextureManager> GetTextureManager() const override {
+            return std::static_pointer_cast<ITextureManager>(m_TextureManager);
+        };
     };
 }
 

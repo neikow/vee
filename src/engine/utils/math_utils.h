@@ -8,7 +8,7 @@ namespace Utils::Math {
     glm::mat4x4 CalculateWorldMatrix(
         glm::vec3 position,
         glm::quat rotation,
-        float scale
+        glm::vec3 scale
     );
 }
 

@@ -7,16 +7,42 @@
 #include "renderer/vulkan/vulkan_renderer_with_ui.h"
 bool show_demo_window = true;
 
+// cpp
 void Editor::DrawSceneHierarchy() {
-    ImGui::ShowDemoWindow(&show_demo_window);
-
     ImGui::Begin("Scene Hierarchy");
 
-    if (ImGui::Button("Create Scene")) {
+    const float availWidth = ImGui::GetContentRegionAvail().x;
+    const ImGuiStyle &style = ImGui::GetStyle();
+    const char *currentName = m_Engine->GetScene()->GetName().c_str();
+
+    const float plusTextW = ImGui::CalcTextSize("+").x;
+    float buttonWidth = plusTextW + style.FramePadding.x * 2.0f;
+    if (buttonWidth < 26.0f) buttonWidth = 26.0f;
+    const float spacing = style.ItemInnerSpacing.x;
+
+    float comboWidth = availWidth - buttonWidth - spacing;
+    if (comboWidth < 0.0f) comboWidth = 0.0f;
+    ImGui::SetNextItemWidth(comboWidth);
+
+    if (ImGui::BeginCombo("##Scenes", currentName)) {
+        for (const auto &sceneData: m_SceneManager->ListScenes()) {
+            const bool isSelected = (m_Engine->GetScene()->GetName() == sceneData.name);
+            if (ImGui::Selectable(sceneData.name.c_str(), isSelected)) {
+                m_SceneManager->LoadScene(sceneData.path);
+            }
+            if (isSelected) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+
+    ImGui::SameLine(0.0f, spacing);
+    if (ImGui::Button("+", ImVec2(buttonWidth, 0.0f))) {
+        // handle add scene
     }
 
     ImGui::End();
 }
+
 
 void Editor::DrawInspector() {
     {
@@ -29,7 +55,7 @@ void Editor::DrawInspector() {
 void Editor::DrawViewport() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
-    const auto renderer = std::reinterpret_pointer_cast<Vulkan::RendererWithUi>(m_Engine->m_Renderer);
+    const auto renderer = std::reinterpret_pointer_cast<Vulkan::RendererWithUi>(m_Engine->GetRenderer());
 
     ImGuiWindowClass window_class;
     window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoTabBar;

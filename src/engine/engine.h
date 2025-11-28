@@ -12,32 +12,21 @@
 #include "entities/system/display_system.h"
 #include "models/texture_manager/vulkan_texture_manager.h"
 #include "renderer/abstract.h"
+#include "scenes/scene.h"
 
 class Engine {
     bool m_ShouldQuit = false;
     bool m_Paused = false;
 
-    std::shared_ptr<Vulkan::TextureManager> m_TextureManager;
-    std::shared_ptr<DisplaySystem> m_DisplaySystem;
+    std::shared_ptr<Scene> m_Scene;
+
+    std::shared_ptr<AbstractRenderer> m_Renderer;
 
 public:
-    std::shared_ptr<AbstractRenderer> m_Renderer;
-    std::shared_ptr<SystemManager> m_SystemManager;
-    std::shared_ptr<EntityManager> m_EntityManager;
-    std::shared_ptr<ComponentManager> m_ComponentManager;
-
-    Engine(
-        const std::shared_ptr<AbstractRenderer> &renderer,
-        const std::shared_ptr<SystemManager> &systemManager,
-        const std::shared_ptr<EntityManager> &entityManager,
-        const std::shared_ptr<ComponentManager> &componentManager
+    explicit Engine(
+        const std::shared_ptr<AbstractRenderer> &renderer
     )
-        : m_Renderer(renderer),
-          m_SystemManager(systemManager),
-          m_EntityManager(entityManager),
-          m_ComponentManager(componentManager) {
-        RegisterInternalComponents();
-        RegisterInternalSystems();
+        : m_Renderer(renderer) {
     }
 
     void Initialize(int width, int height, const std::string &appName, uint32_t version) const;
@@ -46,24 +35,21 @@ public:
 
     void Shutdown() const;
 
+    void LoadScene(const std::string &scenePath);
+
     [[nodiscard]] bool Paused() const;
 
     [[nodiscard]] bool ShouldQuit() const;
 
     [[nodiscard]] std::shared_ptr<AbstractRenderer> GetRenderer() const;
 
-    [[nodiscard]] EntityID CreateEntity() const;
+    [[nodiscard]] std::shared_ptr<Scene> GetScene();
 
     void Pause();
 
     void Resume();
 
     void Reset();
-
-private:
-    void RegisterInternalSystems();
-
-    void RegisterInternalComponents() const;
 };
 
 #endif //GAME_ENGINE_ENGINE_H

@@ -6,26 +6,26 @@
 #include "../models/mesh_manager/mesh_manager.h"
 #include "../models/texture_manager/vulkan_texture_manager.h"
 
+using RendererInitTask = std::function<void()>;
+using RendererCleanupTask = std::function<void()>;
+
 class AbstractRenderer {
     std::shared_ptr<MeshManager> m_MeshManager;
     std::shared_ptr<Vulkan::TextureManager> m_TextureManager;
 
 protected:
+    std::vector<RendererInitTask> m_InitQueue;
+    std::vector<RendererCleanupTask> m_CleanupStack;
     bool m_Initialized = false;
 
 public:
-    AbstractRenderer() : m_MeshManager(std::make_shared<MeshManager>()),
-                         m_TextureManager(
-                             std::make_shared<Vulkan::TextureManager>(this)
-                         ) {
-    };
+    AbstractRenderer();
 
     [[nodiscard]] std::shared_ptr<MeshManager> GetMeshManager() const {
         return m_MeshManager;
     }
 
     [[nodiscard]] std::shared_ptr<Vulkan::TextureManager> GetTextureManager() const {
-        ;
         return m_TextureManager;
     }
 
@@ -60,7 +60,20 @@ public:
 
     virtual void SubmitUIDrawData(ImDrawData *drawData) = 0;
 
+    virtual void UpdateGeometryBuffers() = 0;
+
+    virtual void UpdateTextureDescriptor(TextureId textureId) = 0;
+
+    void EnqueuePostInitTask(const RendererInitTask &task);
+
+    void EnqueueCleanupTask(const RendererCleanupTask &task);
+
     virtual ~AbstractRenderer() = default;
+
+protected:
+    void ExecuteInitTasks();
+
+    void ExecuteCleanupTasks();
 };
 
 

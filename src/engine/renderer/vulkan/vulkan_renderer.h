@@ -240,6 +240,10 @@ namespace Vulkan {
 
         void CleanupViewportResources() const;
 
+        void UpdateTextureDescriptor(TextureId textureId) override;
+
+        void UpdateGeometryBuffers() override;
+
     public:
         [[nodiscard]] VkDescriptorSet GetViewportDescriptorSet() const;
     };

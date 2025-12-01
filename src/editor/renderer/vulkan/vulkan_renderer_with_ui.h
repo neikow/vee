@@ -13,6 +13,9 @@ namespace Vulkan {
         ImDrawData *m_DrawData = nullptr;
         VkDescriptorPool m_ImguiDescriptorPool = VK_NULL_HANDLE;
 
+        using Renderer::UpdateTextureDescriptor;
+        using Renderer::UpdateGeometryBuffers;
+
     public:
         RendererWithUi() = default;
 

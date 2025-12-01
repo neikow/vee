@@ -5,6 +5,7 @@
 #include "vector"
 #include "tiny_obj_loader.h"
 
+class AbstractRenderer;
 using ModelId = uint32_t;
 
 struct MeshInfo {
@@ -21,6 +22,8 @@ struct LoadModelResult {
 
 
 class MeshManager {
+    AbstractRenderer *m_Renderer;
+    std::map<ModelId, std::uint32_t> m_ModelIdToMeshIndex;
     std::vector<std::vector<Vertex> > m_Vertices;
     std::vector<std::vector<uint32_t> > m_Indices;
     std::vector<MeshInfo> m_MeshInfos;
@@ -34,6 +37,9 @@ class MeshManager {
     );
 
 public:
+    explicit MeshManager(AbstractRenderer *renderer) : m_Renderer(renderer) {
+    }
+
     [[nodiscard]] std::vector<Vertex> GetMeshVerticesArray() const {
         return Utils::Vectors::FlattenCopy(m_Vertices);
     };
@@ -43,10 +49,10 @@ public:
     };
 
     [[nodiscard]] MeshInfo GetMeshInfo(const ModelId modelId) const {
-        return m_MeshInfos[modelId];
+        return m_MeshInfos[m_ModelIdToMeshIndex.at(modelId)];
     };
 
-    ModelId LoadModel(const std::string &modelPath);
+    ModelId LoadMesh(const std::string &modelPath);
 
     void Reset();
 };

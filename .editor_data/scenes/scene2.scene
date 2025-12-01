@@ -30,11 +30,12 @@ entities:
         far_plane: 200
       - type: ActiveCameraTagComponent
   - id: 1
+    # Apple
     components:
       - type: TransformComponent
         position: [ 1, 0, 0 ]
         rotation: [ 1, 0, 0, 0 ]
-        scale: [ 1, 1, 1 ]
+        scale: [ 2, 2, 2 ]
       - type: VelocityComponent
         linear: [ 0, 0, 0 ]
         angular: [ 0, 0, 1.0 ]
@@ -42,6 +43,7 @@ entities:
         mesh_id: 0
         texture_id: 0
   - id: 1
+    # Viking Room
     components:
       - type: TransformComponent
         position: [ -1, 0, 0 ]

@@ -137,7 +137,7 @@ void DeserializeSceneV0(
         const auto renderer = scenePtr->GetRenderer();
         for (auto meshNode: meshes) {
             const auto meshPath = meshNode["path"].as<std::string>();
-            renderer->GetMeshManager()->LoadModel(meshPath);
+            renderer->GetMeshManager()->LoadMesh(meshPath);
         }
     } else {
         std::cerr << "[WARN] No meshes found in scene data." << std::endl;

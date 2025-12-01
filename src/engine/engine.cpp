@@ -20,6 +20,7 @@ void Engine::Shutdown() const {
 }
 
 void Engine::LoadScene(const std::string &scenePath) {
+    if (m_Renderer->Initialized()) m_Renderer->Reset();
     m_Scene = SceneSerializer::LoadScene(scenePath, m_Renderer);
 }
 

@@ -24,21 +24,18 @@ namespace Vulkan {
     };
 
     class TextureManager final : public ITextureManager {
-        AbstractRenderer *m_Renderer = nullptr;
+        AbstractRenderer *m_Renderer;
         std::map<TextureId, TextureInfo> m_TextureCatalog;
         TextureId m_NextTextureID = 0;
 
         TextureInfo m_DefaultTexture{};
 
     public:
-        explicit TextureManager(AbstractRenderer *renderer) : m_Renderer(renderer) {
-        }
+        explicit TextureManager(AbstractRenderer *renderer);
 
         TextureId LoadTexture(TextureId textureId, const std::string &texturePath) override;
 
         TextureId LoadTexture(const std::string &texturePath) override;
-
-        void CreateResources();
 
         [[nodiscard]] VkImageView GetImageView(TextureId textureId) const;
 
@@ -49,7 +46,9 @@ namespace Vulkan {
         void Reset() override;
 
     private:
-        static void CreateDefaultTexture(const Renderer *renderer, TextureInfo &outInfo);
+        void CreateTextureGPUResources(TextureId textureId);
+
+        void CreateDefaultTexture();
     };
 }
 

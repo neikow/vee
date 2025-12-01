@@ -1,5 +1,7 @@
 #include "mesh_manager.h"
 
+#include "../../renderer/abstract.h"
+
 LoadModelResult MeshManager::LoadModelData(
     const tinyobj::attrib_t &attrib,
     const std::vector<tinyobj::shape_t> &shapes
@@ -57,7 +59,7 @@ LoadModelResult MeshManager::LoadModelData(
     return result;
 }
 
-ModelId MeshManager::LoadModel(const std::string &modelPath) {
+ModelId MeshManager::LoadMesh(const std::string &modelPath) {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -86,9 +88,20 @@ ModelId MeshManager::LoadModel(const std::string &modelPath) {
     m_CurrentVertexOffset += result.vertexCount;
     m_CurrentIndexOffset += result.indexCount;
 
+    m_Renderer->EnqueuePostInitTask([this] {
+        m_Renderer->UpdateGeometryBuffers();
+    });
+
+    m_ModelIdToMeshIndex[result.modelId] = static_cast<uint32_t>(m_MeshInfos.size() - 1);
+
     return result.modelId;
 }
 
 void MeshManager::Reset() {
-    // TODO: Implement proper resource cleanup if necessary.
+    m_CurrentVertexOffset = 0;
+    m_CurrentIndexOffset = 0;
+    m_Vertices.clear();
+    m_Indices.clear();
+    m_MeshInfos.clear();
+    m_ModelIdToMeshIndex.clear();
 }

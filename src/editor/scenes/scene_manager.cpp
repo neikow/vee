@@ -54,9 +54,6 @@ std::vector<SceneData> SceneManager::ListScenes() {
             }
         }
         closedir(dir);
-
-        std::cout << "[INFO] Found " << scenes.size() << " scenes." << std::endl;
-
         return scenes;
     }
 

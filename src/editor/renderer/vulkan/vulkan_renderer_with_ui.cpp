@@ -42,7 +42,7 @@ void Vulkan::RendererWithUi::Cleanup() {
         nullptr
     );
 
-    Cleanup();
+    Renderer::Cleanup();
 
     ImGui::DestroyContext();
 }

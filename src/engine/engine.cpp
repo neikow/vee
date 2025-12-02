@@ -8,10 +8,8 @@ void Engine::Initialize(const int width, const int height, const std::string &ap
 }
 
 void Engine::Update(const float deltaTime) const {
-    if (!m_Paused) {
-        m_Scene->GetSystemManager()->UpdateSystems(deltaTime);
-    }
-    m_Scene->GetDisplaySystem()->Render(0.01f);
+    m_Scene->GetSystemManager()->UpdateSystems(m_Paused ? 0.0f : deltaTime);
+    m_Scene->GetDisplaySystem()->Render(m_ActiveCameraEntityId);
 }
 
 void Engine::Shutdown() const {
@@ -21,7 +19,7 @@ void Engine::Shutdown() const {
 
 void Engine::LoadScene(const std::string &scenePath) {
     if (m_Renderer->Initialized()) m_Renderer->Reset();
-    m_Scene = SceneSerializer::LoadScene(scenePath, m_Renderer);
+    m_Scene = SceneSerializer::LoadScene(scenePath, m_Renderer, m_IsEditorMode);
 }
 
 bool Engine::Paused() const {
@@ -49,6 +47,5 @@ void Engine::Resume() {
 }
 
 void Engine::Reset() {
-    m_Paused = false;
-    // TODO: Implement reset
+    m_Scene = SceneSerializer::LoadScene(m_Scene->GetPath(), m_Renderer, m_IsEditorMode);
 }

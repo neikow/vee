@@ -1,0 +1,7 @@
+#ifndef VEE_INTERNAL_TAG_COMPONENT_H
+#define VEE_INTERNAL_TAG_COMPONENT_H
+
+struct InternalTagComponent {
+};
+
+#endif //VEE_INTERNAL_TAG_COMPONENT_H

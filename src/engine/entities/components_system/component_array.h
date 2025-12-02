@@ -4,13 +4,18 @@
 #include <vector>
 
 #include "../types.h"
+#include "component_base.h"
 
 namespace Entities {
     class IComponentArray {
     public:
+        [[nodiscard]] virtual ComponentTypeId GetTypeId() const = 0;
+
+        [[nodiscard]] virtual bool HasData(EntityID entity) const = 0;
+
         virtual ~IComponentArray() = default;
 
-        virtual void EntityDestroyed(EntityID entity) = 0;
+        virtual void RemoveEntity(EntityID entity) = 0;
     };
 
 
@@ -18,27 +23,37 @@ namespace Entities {
     class ComponentArray final : public IComponentArray {
         std::vector<T> m_ComponentArray;
 
+        ComponentTypeId m_TypeID;
         std::unordered_map<EntityID, size_t> m_EntityToIndexMap;
         std::unordered_map<size_t, EntityID> m_IndexToEntityMap;
 
         size_t m_Size = 0;
 
     public:
+        ComponentArray() {
+            m_TypeID = ComponentTypeHelper<T>::ID;
+        }
+
+        [[nodiscard]] ComponentTypeId GetTypeId() const override {
+            return m_TypeID;
+        }
+
+        [[nodiscard]] bool HasData(const EntityID entity) const override {
+            return m_EntityToIndexMap.contains(entity);
+        }
+
         void InsertData(const EntityID entity, T &component) {
             m_EntityToIndexMap[entity] = m_Size;
             m_IndexToEntityMap[m_Size] = entity;
-            m_ComponentArray
-                    .
-                    push_back(component);
-            m_Size
-                    ++;
+            m_ComponentArray.push_back(component);
+            m_Size++;
         }
 
         T &GetData(const EntityID entity) {
             return m_ComponentArray[m_EntityToIndexMap[entity]];
         }
 
-        void EntityDestroyed(const EntityID entity) override {
+        void RemoveEntity(const EntityID entity) override {
             if (!m_EntityToIndexMap.contains(entity)) {
                 return;
             }

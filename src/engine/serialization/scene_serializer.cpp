@@ -156,9 +156,10 @@ void DeserializeSceneV0(
 
 std::unique_ptr<Scene> SceneSerializer::LoadScene(
     const std::string &scenePath,
-    const std::shared_ptr<AbstractRenderer> &renderer
+    const std::shared_ptr<AbstractRenderer> &renderer,
+    const bool editorMode
 ) {
-    auto scene = std::make_unique<Scene>(renderer);
+    auto scene = std::make_unique<Scene>(scenePath, renderer, editorMode);
 
     YAML::Node data;
     try {

@@ -15,6 +15,9 @@ constexpr EntityID MAX_ENTITIES = 1'000;
 
 constexpr size_t MAX_COMPONENTS = COMPONENTS_COUNT;
 
+struct EntityData {
+    EntityID id;
+};
 
 class EntityManager {
     std::vector<Signature> m_Signatures;
@@ -48,6 +51,14 @@ public:
 
     [[nodiscard]] Signature GetSignature(const EntityID entityID) const {
         return m_Signatures[entityID];
+    }
+
+    [[nodiscard]] std::vector<EntityData> GetAllEntities() const {
+        auto entities = std::vector<EntityData>{};
+        for (EntityID i = 0; i < m_LivingEntityCount; ++i) {
+            entities.push_back({i});
+        }
+        return entities;
     }
 };
 

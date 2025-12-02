@@ -21,12 +21,10 @@ public:
     void Update(float dt) override {
     };
 
-    void Render(float interpolationFactor) const;
+    void Render(EntityID cameraEntityId) const;
 
 private:
-    // Prepare the camera for rendering
-    // Returns `false` if no active camera is found
-    [[nodiscard]] bool PrepareCamera() const;
+    void PrepareCamera(EntityID cameraEntityId) const;
 };
 
 

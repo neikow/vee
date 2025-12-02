@@ -20,6 +20,7 @@
 #include "src/editor/renderer/vulkan/vulkan_renderer_with_ui.h"
 #include "src/engine/entities/manager.h"
 #include "src/engine/entities/components_system/component_manager.h"
+#include "src/engine/entities/components_system/components/camera_component.h"
 #include "src/engine/entities/components_system/components/renderable_component.h"
 #include "src/engine/entities/components_system/components/transform_component.h"
 #include "src/engine/entities/components_system/components/velocity_component.h"
@@ -42,6 +43,15 @@ int main() {
 
     try {
         g_Engine->Initialize(WIDTH, HEIGHT, "Engine", VK_MAKE_VERSION(1, 0, 0));
+
+        Signature signature;
+        signature.set(ComponentTypeHelper<CameraComponent>::ID);
+        signature.set(ComponentTypeHelper<ActiveCameraTagComponent>::ID);
+        g_Engine->SetActiveCameraEntityId(
+            Utils::Entities::GetFirstEntityWithSignature(
+                g_Engine->GetScene()->GetEntityManager()->GetEntitiesWithSignature(signature)
+            )
+        );
 
         auto startTime = std::chrono::high_resolution_clock::now();
 

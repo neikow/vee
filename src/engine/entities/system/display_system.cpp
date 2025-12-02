@@ -1,5 +1,6 @@
 #include "display_system.h"
 
+#include "../../../editor/editor.h"
 #include "../../utils/math_utils.h"
 #include "../components_system/components/transform_component.h"
 #include "../components_system/components/camera_component.h"
@@ -7,45 +8,21 @@
 #include "../components_system/component_manager.h"
 #include "../components_system/tags/active_camera_tag_component.h"
 
-std::optional<EntityID> GetActiveCameraEntityId(
-    const std::shared_ptr<EntityManager> &entityManager
-) {
-    Signature cameraSignature;
-    cameraSignature.set(ComponentTypeHelper<CameraComponent>::ID);
-    cameraSignature.set(ComponentTypeHelper<ActiveCameraTagComponent>::ID);
-
-    const auto cameraEntities = entityManager->GetEntitiesWithSignature(cameraSignature);
-    for (const auto &entityId: cameraEntities) {
-        return entityId;
+void DisplaySystem::PrepareCamera(const EntityID cameraEntityId) const {
+    if (cameraEntityId == NULL_ENTITY) {
+        throw std::runtime_error("No camera to prepare.");
     }
 
-    return std::nullopt;
-}
-
-bool DisplaySystem::PrepareCamera() const {
-    const auto result = GetActiveCameraEntityId(m_EntityManager);
-
-    if (!result.has_value()) {
-        std::cerr << "[WARN] No active camera entity found." << std::endl;
-        return false;
-    }
-
-    const auto currentCameraEntityId = result.value();
-    const auto &cameraComponent = m_ComponentManager->GetComponent<CameraComponent>(currentCameraEntityId);
+    const auto &cameraComponent = m_ComponentManager->GetComponent<CameraComponent>(cameraEntityId);
 
     m_Renderer->UpdateCameraMatrix(
         cameraComponent.viewMatrix,
         cameraComponent.projectionMatrix
     );
-
-    return true;
 }
 
-void DisplaySystem::Render(float interpolationFactor) const {
-    if (!PrepareCamera()) {
-        m_Renderer->Draw();
-        return;
-    };
+void DisplaySystem::Render(const EntityID cameraEntityId) const {
+    PrepareCamera(cameraEntityId);
 
     // Prepare Light
     // TODO: Implement lights

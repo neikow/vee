@@ -14,6 +14,7 @@
 #include "utils.h"
 #include "vertex_utils.h"
 #include "../../engine.h"
+#include "../../io/input_system.h"
 #include "../../shaders/compile.h"
 
 //language=GLSL
@@ -97,6 +98,8 @@ namespace Vulkan {
         m_Window = glfwCreateWindow(width, height, appName.c_str(), nullptr, nullptr);
         glfwSetWindowUserPointer(m_Window, this);
         glfwSetFramebufferSizeCallback(m_Window, FramebufferResizeCallback);
+
+        InputSystem::SetupCallbacks(m_Window);
     }
 
     void Renderer::FramebufferResizeCallback(GLFWwindow *window, int, int) {

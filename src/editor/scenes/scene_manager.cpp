@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <sys/types.h>
 
+#include "../../engine/entities/components_system/tags/editor_camera_tag_component.h"
 #include "yaml-cpp/depthguard.h"
 #include "yaml-cpp/node/node.h"
 #include "yaml-cpp/node/parse.h"

@@ -6,11 +6,6 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
 
-#include "entities/system/system_manager.h"
-#include "entities/components_system/component_manager.h"
-#include "entities/system/camera_system.h"
-#include "entities/system/display_system.h"
-#include "models/texture_manager/vulkan_texture_manager.h"
 #include "renderer/abstract.h"
 #include "scenes/scene.h"
 
@@ -18,9 +13,12 @@ class Engine {
     bool m_ShouldQuit = false;
     bool m_Paused = false;
 
+    bool m_IsEditorMode = false;
+
     std::shared_ptr<Scene> m_Scene;
 
     std::shared_ptr<AbstractRenderer> m_Renderer;
+    EntityID m_ActiveCameraEntityId = NULL_ENTITY;
 
 public:
     explicit Engine(
@@ -45,11 +43,19 @@ public:
 
     [[nodiscard]] std::shared_ptr<Scene> GetScene();
 
+    void SetActiveCameraEntityId(const EntityID entityId) {
+        m_ActiveCameraEntityId = entityId;
+    }
+
     void Pause();
 
     void Resume();
 
     void Reset();
+
+    void ToggleEditorMode(const bool editorMode) {
+        m_IsEditorMode = editorMode;
+    }
 };
 
 #endif //GAME_ENGINE_ENGINE_H

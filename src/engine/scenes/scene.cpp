@@ -5,11 +5,21 @@
 #include "../entities/components_system/components/renderable_component.h"
 #include "../entities/components_system/components/camera_component.h"
 #include "../entities/components_system/tags/active_camera_tag_component.h"
+#include "../entities/components_system/tags/editor_camera_tag_component.h"
+#include "../entities/components_system/tags/internal_tag_component.h"
 #include "../entities/system/display_system.h"
 #include "../entities/system/camera_system.h"
+#include "../../editor/systems/editor_camera_system.h"
 #include "../entities/system/movement_system.h"
 
-void Scene::RegisterInternalSystems() {
+std::string &Scene::GetPath() {
+    return m_Path;
+}
+
+EntityID Scene::FindEntityInScene(double normX, double normY) {
+}
+
+void Scene::RegisterInternalSystems(const bool editorMode) {
     Signature renderableSignature;
     renderableSignature.set(ComponentTypeHelper<RenderableComponent>::ID);
     renderableSignature.set(ComponentTypeHelper<TransformComponent>::ID);
@@ -24,15 +34,18 @@ void Scene::RegisterInternalSystems() {
 
     Signature activeCameraSignature;
     activeCameraSignature.set(ComponentTypeHelper<CameraComponent>::ID);
-    activeCameraSignature.set(ComponentTypeHelper<ActiveCameraTagComponent>::ID);
-
-    m_SystemManager->RegisterSystem<CameraSystem>(
-        std::make_shared<CameraSystem>(
-            m_Renderer,
-            m_ComponentManager
-        )
-    );
-    m_SystemManager->SetSignature<CameraSystem>(activeCameraSignature);
+    activeCameraSignature.set(ComponentTypeHelper<TransformComponent>::ID);
+    if (!editorMode) {
+        auto sceneCameraSignature = activeCameraSignature;
+        sceneCameraSignature.set(ComponentTypeHelper<ActiveCameraTagComponent>::ID);
+        m_SystemManager->RegisterSystem<CameraSystem>(
+            std::make_shared<CameraSystem>(
+                m_Renderer,
+                m_ComponentManager
+            )
+        );
+        m_SystemManager->SetSignature<CameraSystem>(sceneCameraSignature);
+    }
 
     Signature movementSignature;
     movementSignature.set(ComponentTypeHelper<TransformComponent>::ID);
@@ -44,6 +57,7 @@ void Scene::RegisterInternalSystems() {
 }
 
 void Scene::RegisterInternalComponents() const {
+    m_ComponentManager->RegisterComponent<InternalTagComponent>();
     m_ComponentManager->RegisterComponent<TransformComponent>();
     m_ComponentManager->RegisterComponent<VelocityComponent>();
     m_ComponentManager->RegisterComponent<RenderableComponent>();

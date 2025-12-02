@@ -81,6 +81,14 @@ namespace Utils::Entities {
             return {m_Signatures, m_Query, m_Signatures ? m_Signatures->size() : 0};
         }
     };
-}
 
+    inline EntityID GetFirstEntityWithSignature(
+        const EntityMatchRange &entityRange
+    ) {
+        for (const auto entityID: entityRange) {
+            return entityID;
+        }
+        return NULL_ENTITY;
+    }
+}
 #endif //GAME_ENGINE_ENTITY_UTILS_H

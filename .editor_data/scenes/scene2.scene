@@ -42,7 +42,7 @@ entities:
       - type: RenderableComponent
         mesh_id: 0
         texture_id: 0
-  - id: 1
+  - id: 2
     # Viking Room
     components:
       - type: TransformComponent

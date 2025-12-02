@@ -18,17 +18,22 @@ class Scene {
     std::shared_ptr<DisplaySystem> m_DisplaySystem;
 
     std::string m_Name = "Untitled Scene";
+    std::string m_Path;
 
 public:
     explicit Scene(
-        const std::shared_ptr<AbstractRenderer> &renderer
+        const std::string &path,
+        const std::shared_ptr<AbstractRenderer> &renderer,
+        const bool editorMode
     ) : m_Renderer(renderer) {
+        m_Path = path;
+
         m_EntityManager = std::make_shared<EntityManager>();
         m_SystemManager = std::make_shared<SystemManager>();
         m_ComponentManager = std::make_shared<ComponentManager>(m_SystemManager, m_EntityManager);
 
         RegisterInternalComponents();
-        RegisterInternalSystems();
+        RegisterInternalSystems(editorMode);
     }
 
     void SetName(const std::string &name) {
@@ -59,12 +64,16 @@ public:
         return m_EntityManager->CreateEntity();
     }
 
-    std::shared_ptr<AbstractRenderer> GetRenderer() const {
+    [[nodiscard]] std::shared_ptr<AbstractRenderer> GetRenderer() const {
         return m_Renderer;
     }
 
+    std::string &GetPath();
+
+    EntityID FindEntityInScene(double normX, double normY);
+
 private:
-    void RegisterInternalSystems();
+    void RegisterInternalSystems(bool editorMode);
 
     void RegisterInternalComponents() const;
 };

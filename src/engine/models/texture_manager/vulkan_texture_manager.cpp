@@ -7,8 +7,6 @@
 #include "stb_image.h"
 
 namespace Vulkan {
-    static constexpr uint8_t DEFAULT_WHITE_PIXEL[4] = {255, 255, 255, 255};
-
     TextureInfo ParseTexture(const std::string &texturePath) {
         int texWidth, texHeight, texChannels;
         stbi_uc *pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
@@ -36,9 +34,6 @@ namespace Vulkan {
     }
 
     TextureManager::TextureManager(AbstractRenderer *renderer) : m_Renderer(renderer) {
-        renderer->EnqueuePostInitTask([this] {
-            CreateDefaultTexture();
-        });
     }
 
     TextureId TextureManager::LoadTexture(const TextureId textureId, const std::string &texturePath) {
@@ -51,83 +46,12 @@ namespace Vulkan {
         return textureId;
     }
 
-    void TextureManager::CreateDefaultTexture() {
-        const auto renderer = dynamic_cast<Renderer *>(m_Renderer);
-
-        constexpr VkDeviceSize imageSize = 4;
-        VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-
-        renderer->CreateBuffer(
-            imageSize,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stagingBuffer,
-            stagingBufferMemory,
-            {}
-        );
-
-        void *data;
-        vkMapMemory(renderer->m_Device, stagingBufferMemory, 0, imageSize, 0, &data);
-        std::memcpy(data, DEFAULT_WHITE_PIXEL, static_cast<size_t>(imageSize));
-        vkUnmapMemory(renderer->m_Device, stagingBufferMemory);
-
-        renderer->CreateImage(
-            1, 1, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
-            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DefaultTexture.image, m_DefaultTexture.imageMemory, {}
-        );
-
-        renderer->TransitionImageLayout(
-            m_DefaultTexture.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-        );
-        renderer->CopyBufferToImage(
-            stagingBuffer, m_DefaultTexture.image, 1, 1
-        );
-        renderer->TransitionImageLayout(
-            m_DefaultTexture.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-        );
-
-        m_DefaultTexture.imageView = renderer->
-                CreateImageView(m_DefaultTexture.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
-
-        vkDestroyBuffer(renderer->m_Device, stagingBuffer, nullptr);
-        vkFreeMemory(renderer->m_Device, stagingBufferMemory, nullptr);
-
-        m_DefaultTexture.width = 1;
-        m_DefaultTexture.height = 1;
-        m_DefaultTexture.imageSize = imageSize;
-    }
-
-    void TextureManager::Cleanup() {
-        const auto renderer = dynamic_cast<Renderer *>(m_Renderer);
-
-        for (const auto &info: m_TextureCatalog | std::views::values) {
-            vkDestroyImageView(renderer->m_Device, info.imageView, nullptr);
-            vkDestroyImage(renderer->m_Device, info.image, nullptr);
-            vkFreeMemory(renderer->m_Device, info.imageMemory, nullptr);
-        }
-
+    void TextureManager::GraphicMemoryCleanup() {
         m_TextureCatalog.clear();
-
-        if (m_DefaultTexture.imageView != VK_NULL_HANDLE) {
-            vkDestroyImageView(renderer->m_Device, m_DefaultTexture.imageView, nullptr);
-            m_DefaultTexture.imageView = VK_NULL_HANDLE;
-        }
-        if (m_DefaultTexture.image != VK_NULL_HANDLE) {
-            vkDestroyImage(renderer->m_Device, m_DefaultTexture.image, nullptr);
-            m_DefaultTexture.image = VK_NULL_HANDLE;
-        }
-        if (m_DefaultTexture.imageMemory != VK_NULL_HANDLE) {
-            vkFreeMemory(renderer->m_Device, m_DefaultTexture.imageMemory, nullptr);
-            m_DefaultTexture.imageMemory = VK_NULL_HANDLE;
-        }
     }
 
     void TextureManager::Reset() {
-        Cleanup();
+        GraphicMemoryCleanup();
         m_NextTextureID = 0;
     }
 
@@ -191,6 +115,13 @@ namespace Vulkan {
 
         stbi_image_free(info.pixels);
         info.pixels = nullptr;
+
+        renderer->EnqueueCleanupTask([this, renderer, textureId] {
+            const auto textureInfo = m_TextureCatalog[textureId];
+            vkDestroyImage(renderer->m_Device, textureInfo.image, nullptr);
+            vkFreeMemory(renderer->m_Device, textureInfo.imageMemory, nullptr);
+            vkDestroyImageView(renderer->m_Device, textureInfo.imageView, nullptr);
+        });
     }
 
     VkImageView TextureManager::GetImageView(const TextureId textureId) const {
@@ -198,7 +129,7 @@ namespace Vulkan {
             return m_TextureCatalog.at(textureId).imageView;
         }
 
-        return m_DefaultTexture.imageView;
+        return nullptr;
     }
 
     VkSampler TextureManager::GetSampler() const {

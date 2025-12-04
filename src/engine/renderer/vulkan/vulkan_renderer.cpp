@@ -17,6 +17,8 @@
 #include "../../io/input_system.h"
 #include "../../shaders/compile.h"
 
+static constexpr uint8_t DEFAULT_PURPLE_PIXEL[4] = {255, 0, 255, 255};
+
 //language=GLSL
 auto vertexShader = R"(
         #version 450
@@ -100,6 +102,11 @@ namespace Vulkan {
         glfwSetFramebufferSizeCallback(m_Window, FramebufferResizeCallback);
 
         InputSystem::SetupCallbacks(m_Window);
+
+        EnqueueCleanupTask([this] {
+            glfwDestroyWindow(m_Window);
+            glfwTerminate();
+        });
     }
 
     void Renderer::FramebufferResizeCallback(GLFWwindow *window, int, int) {
@@ -129,7 +136,7 @@ namespace Vulkan {
 
         VkFramebufferCreateInfo framebufferInfo{};
         framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebufferInfo.renderPass = m_RenderPass;
+        framebufferInfo.renderPass = m_MainRenderPass;
         framebufferInfo.attachmentCount = attachments.size();
         framebufferInfo.pAttachments = attachments.data();
         framebufferInfo.width = m_ViewportExtent.width;
@@ -204,25 +211,54 @@ namespace Vulkan {
     }
 
     void Renderer::InitVulkan(const std::string &appName, const std::uint32_t version) {
+        CoreVulkanSetup(appName, version);
+        CreatePipelinesAndShaders();
+        CreateGraphicsResources();
+        CreateBuffers();
+        CreateDescriptorAndSyncObjects();
+    }
+
+    void Renderer::CoreVulkanSetup(const std::string &appName, const std::uint32_t version) {
         CreateInstance(appName, version);
         SetupDebugMessenger();
         CreateSurface();
         PickPhysicalDevice();
         CreateLogicalDevice();
+        CreateCommandPools();
+    }
+
+    void Renderer::CreateGraphicsResources() {
         CreateSwapChain();
         CreateImageViews();
-        CreateRenderPass();
-        CreateTextureSampler();
-        CreateDescriptorSetLayout();
-        CreateCommandPools();
         CreateDepthResources();
+        CreateMissingTexture();
         CreateFramebuffers();
+    }
+
+    void Renderer::SetSwapChainImageFormat() {
+        const SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(m_PhysicalDevice);
+
+        const VkSurfaceFormatKHR surfaceFormat = Utils::ChooseSwapSurfaceFormat(swapChainSupport.formats);
+        m_SwapChainImageFormat = surfaceFormat.format;
+    }
+
+    void Renderer::CreatePipelinesAndShaders() {
+        SetSwapChainImageFormat();
+        CreateMainRenderPass();
+        CreateDescriptorSetLayout();
+        CreateGraphicsPipeline();
+    }
+
+    void Renderer::CreateBuffers() {
         CreateVertexBuffer();
         CreateIndexBuffer();
         CreateUniformBuffers();
+    }
+
+    void Renderer::CreateDescriptorAndSyncObjects() {
+        CreateTextureSampler();
         CreateDescriptorPool();
         CreateDescriptorSets();
-        CreateGraphicsPipeline();
         CreateCommandBuffers();
         CreateSyncObjects();
     }
@@ -244,12 +280,21 @@ namespace Vulkan {
                 || vkCreateFence(m_Device, &fenceInfo, nullptr, &m_InFlightFences[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create per-frame sync objects!");
             }
+
+            EnqueueCleanupTask([this, i] {
+                vkDestroySemaphore(m_Device, m_ImageAvailableSemaphores[i], nullptr);
+                vkDestroyFence(m_Device, m_InFlightFences[i], nullptr);
+            });
         }
 
         for (auto &renderFinishedSemaphore: m_RenderFinishedSemaphores) {
             if (vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create per-image renderFinished semaphore!");
             }
+
+            EnqueueCleanupTask([this, renderFinishedSemaphore] {
+                vkDestroySemaphore(m_Device, renderFinishedSemaphore, nullptr);
+            });
         }
     }
 
@@ -288,6 +333,59 @@ namespace Vulkan {
         }
     }
 
+    void Renderer::CreateMissingTexture() {
+        constexpr VkDeviceSize imageSize = 4;
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+
+        CreateBuffer(
+            imageSize,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            stagingBuffer,
+            stagingBufferMemory,
+            {}
+        );
+
+        void *data;
+        vkMapMemory(m_Device, stagingBufferMemory, 0, imageSize, 0, &data);
+        std::memcpy(data, DEFAULT_PURPLE_PIXEL, static_cast<size_t>(imageSize));
+        vkUnmapMemory(m_Device, stagingBufferMemory);
+
+        CreateImage(
+            1, 1, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DefaultTextureImage, m_DefaultTextureMemory, {}
+        );
+
+        TransitionImageLayout(
+            m_DefaultTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+        );
+        CopyBufferToImage(
+            stagingBuffer, m_DefaultTextureImage, 1, 1
+        );
+        TransitionImageLayout(
+            m_DefaultTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        );
+
+        m_DefaultTextureImageView = CreateImageView(
+            m_DefaultTextureImage,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_ASPECT_COLOR_BIT
+        );
+
+        vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
+        vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
+
+        EnqueueCleanupTask([this] {
+            vkDestroyImageView(m_Device, m_DefaultTextureImageView, nullptr);
+            vkDestroyImage(m_Device, m_DefaultTextureImage, nullptr);
+            vkFreeMemory(m_Device, m_DefaultTextureMemory, nullptr);
+        });
+    }
+
     void Renderer::CreateDescriptorSets() {
         if (!GetTextureManager()) {
             throw std::runtime_error("CreateDescriptorSets called but m_TextureManager is null");
@@ -324,7 +422,11 @@ namespace Vulkan {
 
             for (uint32_t j = 0; j < MAX_TEXTURES; ++j) {
                 textureInfos[j].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                textureInfos[j].imageView = GetTextureManager()->GetImageView(j);
+
+                if (const auto textureView = GetTextureManager()->GetImageView(j); textureView != VK_NULL_HANDLE)
+                    textureInfos[j].imageView = textureView;
+                else
+                    textureInfos[j].imageView = m_DefaultTextureImageView;
             }
 
             std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
@@ -385,6 +487,10 @@ namespace Vulkan {
         if (vkCreateDescriptorPool(m_Device, &poolInfo, nullptr, &m_DescriptorPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor pool!");
         }
+
+        EnqueueCleanupTask([this] {
+            vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
+        });
     }
 
     void Renderer::CreateUniformBuffers() {
@@ -411,6 +517,11 @@ namespace Vulkan {
                 0,
                 &m_UniformBuffersMapped[i]
             );
+
+            EnqueueCleanupTask([this, i] {
+                vkDestroyBuffer(m_Device, m_UniformBuffers[i], nullptr);
+                vkFreeMemory(m_Device, m_UniformBuffersMemory[i], nullptr);
+            });
         }
     }
 
@@ -553,6 +664,10 @@ namespace Vulkan {
         if (vkCreateSampler(m_Device, &samplerInfo, nullptr, &m_TextureSampler) != VK_SUCCESS) {
             throw std::runtime_error("failed to create texture sampler!");
         }
+
+        EnqueueCleanupTask([this] {
+            vkDestroySampler(m_Device, m_TextureSampler, nullptr);
+        });
     }
 
     void Renderer::CreateBuffer(
@@ -644,7 +759,7 @@ namespace Vulkan {
 
             VkFramebufferCreateInfo framebufferInfo{};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            framebufferInfo.renderPass = m_RenderPass;
+            framebufferInfo.renderPass = m_MainRenderPass;
             framebufferInfo.attachmentCount = attachments.size();
             framebufferInfo.pAttachments = attachments.data();
             framebufferInfo.width = m_SwapChainExtent.width;
@@ -654,6 +769,8 @@ namespace Vulkan {
             if (vkCreateFramebuffer(m_Device, &framebufferInfo, nullptr, &m_SwapChainFramebuffers[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create framebuffer!");
             }
+
+            // Destroyed in CleanupSwapChain()
         }
     }
 
@@ -773,7 +890,7 @@ namespace Vulkan {
         if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
             barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
-            if (Vulkan::Utils::HasStencilComponent(format)) {
+            if (Utils::HasStencilComponent(format)) {
                 barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
             }
         } else {
@@ -861,6 +978,10 @@ namespace Vulkan {
             throw std::runtime_error("failed to create command pool!");
         }
 
+        EnqueueCleanupTask([this] {
+            vkDestroyCommandPool(m_Device, m_GraphicsCommandPool, nullptr);
+        });
+
         VkCommandPoolCreateInfo transferPoolInfo{};
         transferPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         transferPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -869,6 +990,10 @@ namespace Vulkan {
         if (vkCreateCommandPool(m_Device, &transferPoolInfo, nullptr, &m_TransferCommandPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create command pool!");
         }
+
+        EnqueueCleanupTask([this] {
+            vkDestroyCommandPool(m_Device, m_TransferCommandPool, nullptr);
+        });
     }
 
     VkShaderModule Renderer::CreateShaderModule(
@@ -1052,7 +1177,7 @@ namespace Vulkan {
 
         pipelineInfo.layout = m_PipelineLayout;
 
-        pipelineInfo.renderPass = m_RenderPass;
+        pipelineInfo.renderPass = m_MainRenderPass;
         pipelineInfo.subpass = 0;
 
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
@@ -1071,6 +1196,11 @@ namespace Vulkan {
 
         vkDestroyShaderModule(m_Device, fragShaderModule, nullptr);
         vkDestroyShaderModule(m_Device, vertShaderModule, nullptr);
+
+        EnqueueCleanupTask([this] {
+            vkDestroyPipeline(m_Device, m_GraphicsPipeline, nullptr);
+            vkDestroyPipelineLayout(m_Device, m_PipelineLayout, nullptr);
+        });
     }
 
     void Renderer::CreateDescriptorSetLayout() {
@@ -1120,9 +1250,13 @@ namespace Vulkan {
         if (vkCreateDescriptorSetLayout(m_Device, &layoutInfo, nullptr, &m_DescriptorSetLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor set layout!");
         }
+
+        EnqueueCleanupTask([this] {
+            vkDestroyDescriptorSetLayout(m_Device, m_DescriptorSetLayout, nullptr);
+        });
     }
 
-    void Renderer::CreateRenderPass() {
+    void Renderer::CreateMainRenderPass() {
         VkAttachmentDescription colorAttachment{};
         colorAttachment.format = m_SwapChainImageFormat;
         colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -1181,7 +1315,10 @@ namespace Vulkan {
                                    | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
 
-        const std::array attachments = {colorAttachment, depthAttachment};
+        const std::array attachments = {
+            colorAttachment,
+            depthAttachment
+        };
 
         VkRenderPassCreateInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -1192,9 +1329,13 @@ namespace Vulkan {
         renderPassInfo.dependencyCount = 1;
         renderPassInfo.pDependencies = &dependency;
 
-        if (vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_RenderPass) != VK_SUCCESS) {
+        if (vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_MainRenderPass) != VK_SUCCESS) {
             throw std::runtime_error("failed to create render pass!");
         }
+
+        EnqueueCleanupTask([this] {
+            vkDestroyRenderPass(m_Device, m_MainRenderPass, nullptr);
+        });
     }
 
     VkImageView Renderer::CreateImageView(
@@ -1252,7 +1393,7 @@ namespace Vulkan {
         createInfo.surface = m_Surface;
 
         createInfo.minImageCount = imageCount;
-        createInfo.imageFormat = surfaceFormat.format;
+        createInfo.imageFormat = m_SwapChainImageFormat;
         createInfo.imageColorSpace = surfaceFormat.colorSpace;
         createInfo.imageExtent = extent;
         createInfo.imageArrayLayers = 1;
@@ -1285,7 +1426,6 @@ namespace Vulkan {
         m_SwapChainImages.resize(imageCount);
         vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &imageCount, m_SwapChainImages.data());
         m_SwapChainExtent = extent;
-        m_SwapChainImageFormat = surfaceFormat.format;
     }
 
     void Renderer::CreateLogicalDevice() {
@@ -1346,6 +1486,8 @@ namespace Vulkan {
         vkGetDeviceQueue(m_Device, indices.graphicsFamily.value(), 0, &m_GraphicsQueue);
         vkGetDeviceQueue(m_Device, indices.presentFamily.value(), 0, &m_PresentQueue);
         vkGetDeviceQueue(m_Device, indices.transferFamily.value(), 0, &m_TransferQueue);
+
+        EnqueueCleanupTask([this] { vkDestroyDevice(m_Device, nullptr); });
     }
 
     void Renderer::PickPhysicalDevice() {
@@ -1377,6 +1519,10 @@ namespace Vulkan {
         if (glfwCreateWindowSurface(m_Instance, m_Window, nullptr, &m_Surface) != VK_SUCCESS) {
             throw std::runtime_error("failed to create window surface!");
         }
+
+        EnqueueCleanupTask([this] {
+            vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
+        });
     }
 
     void Renderer::SetupDebugMessenger() {
@@ -1393,6 +1539,10 @@ namespace Vulkan {
         ) {
             throw std::runtime_error("failed to set up debug messenger!");
         }
+
+        EnqueueCleanupTask([this] {
+            Utils::DestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
+        });
     }
 
     void Renderer::CreateInstance(
@@ -1441,6 +1591,10 @@ namespace Vulkan {
         if (vkCreateInstance(&createInfo, nullptr, &m_Instance) != VK_SUCCESS) {
             throw std::runtime_error("failed to create instance!");
         }
+
+        EnqueueCleanupTask([this] {
+            vkDestroyInstance(m_Instance, nullptr);
+        });
     }
 
     SwapChainSupportDetails Renderer::QuerySwapChainSupport(const VkPhysicalDevice &device) const {
@@ -1649,7 +1803,7 @@ namespace Vulkan {
     ) const {
         VkRenderPassBeginInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        renderPassInfo.renderPass = m_RenderPass;
+        renderPassInfo.renderPass = m_MainRenderPass;
         renderPassInfo.framebuffer = framebuffer;
         renderPassInfo.renderArea.offset = {0, 0};
         renderPassInfo.renderArea.extent = extent;
@@ -1764,7 +1918,7 @@ namespace Vulkan {
 
             VkRenderPassBeginInfo uiPassInfo{};
             uiPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-            uiPassInfo.renderPass = m_RenderPass;
+            uiPassInfo.renderPass = m_MainRenderPass;
             uiPassInfo.framebuffer = m_SwapChainFramebuffers[m_ImageIndex];
             uiPassInfo.renderArea.extent = m_SwapChainExtent;
             uiPassInfo.clearValueCount = 0;
@@ -1776,8 +1930,7 @@ namespace Vulkan {
 
             vkCmdBeginRenderPass(cmd, &uiPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-            ImDrawData *drawData = ImGui::GetDrawData();
-            if (drawData) {
+            if (ImDrawData *drawData = ImGui::GetDrawData()) {
                 ImGui_ImplVulkan_RenderDrawData(drawData, cmd);
             }
             vkCmdEndRenderPass(cmd);
@@ -1866,62 +2019,20 @@ namespace Vulkan {
     }
 
     void Renderer::Cleanup() {
+        vkDestroyBuffer(m_Device, m_VertexBuffer, nullptr);
+        vkFreeMemory(m_Device, m_VertexBufferMemory, nullptr);
+        vkDestroyBuffer(m_Device, m_IndexBuffer, nullptr);
+        vkFreeMemory(m_Device, m_IndexBufferMemory, nullptr);
+
+        CleanupSwapChain();
+
         ExecuteCleanupTasks();
 
-        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            vkDestroySemaphore(m_Device, m_ImageAvailableSemaphores[i], nullptr);
-            vkDestroyFence(m_Device, m_InFlightFences[i], nullptr);
-        }
-
-        for (const auto &renderFinishedSemaphore: m_RenderFinishedSemaphores) {
-            vkDestroySemaphore(m_Device, renderFinishedSemaphore, nullptr);
-        }
-
-        vkDestroyCommandPool(m_Device, m_GraphicsCommandPool, nullptr);
-        vkDestroyCommandPool(m_Device, m_TransferCommandPool, nullptr);
+        GetTextureManager()->GraphicMemoryCleanup();
 
         if (m_RenderMode == RenderMode::EDITOR) {
             CleanupViewportResources();
         }
-        CleanupSwapChain();
-
-        vkDestroySampler(m_Device, m_TextureSampler, nullptr);
-
-        GetTextureManager()->Cleanup();
-
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            vkDestroyBuffer(m_Device, m_UniformBuffers[i], nullptr);
-            vkFreeMemory(m_Device, m_UniformBuffersMemory[i], nullptr);
-        }
-
-        vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
-
-        vkDestroyDescriptorSetLayout(m_Device, m_DescriptorSetLayout, nullptr);
-
-        vkDestroyBuffer(m_Device, m_VertexBuffer, nullptr);
-        vkFreeMemory(m_Device, m_VertexBufferMemory, nullptr);
-
-        vkDestroyBuffer(m_Device, m_IndexBuffer, nullptr);
-        vkFreeMemory(m_Device, m_IndexBufferMemory, nullptr);
-
-        vkDestroyPipeline(m_Device, m_GraphicsPipeline, nullptr);
-        vkDestroyPipelineLayout(m_Device, m_PipelineLayout, nullptr);
-        vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
-
-        if (m_Device != VK_NULL_HANDLE) {
-            vkDestroyDevice(m_Device, nullptr);
-        }
-
-        if constexpr (ENABLE_VALIDATION_LAYERS) {
-            Utils::DestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
-        }
-
-        vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
-        vkDestroyInstance(m_Instance, nullptr);
-
-        glfwDestroyWindow(m_Window);
-
-        glfwTerminate();
     }
 
     void Renderer::Reset() {

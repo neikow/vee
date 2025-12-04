@@ -42,6 +42,8 @@ void Vulkan::RendererWithUi::Cleanup() {
         nullptr
     );
 
+    CleanupPickingResources();
+
     Renderer::Cleanup();
 
     ImGui::DestroyContext();
@@ -93,7 +95,7 @@ void Vulkan::RendererWithUi::InitImgui() {
     initInfo.ImageCount = m_SwapChainImages.size();
     initInfo.MinImageCount = MAX_FRAMES_IN_FLIGHT;
     initInfo.PipelineCache = VK_NULL_HANDLE;
-    initInfo.PipelineInfoMain.RenderPass = m_RenderPass;
+    initInfo.PipelineInfoMain.RenderPass = m_MainRenderPass;
     initInfo.PipelineInfoMain.Subpass = 0;
     initInfo.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     initInfo.ApiVersion = VK_API_VERSION_1_3;
@@ -101,4 +103,64 @@ void Vulkan::RendererWithUi::InitImgui() {
     if (!ImGui_ImplVulkan_Init(&initInfo)) {
         throw std::runtime_error("failed to initialize ImGui Vulkan backend!");
     }
+}
+
+void Vulkan::RendererWithUi::CreatePickingResources() {
+    CreateImage(
+        m_SwapChainExtent.width,
+        m_SwapChainExtent.height,
+        VK_FORMAT_R32_UINT,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        m_PickingImage,
+        m_PickingMemory,
+        {}
+    );
+
+    m_PickingImageView = CreateImageView(m_PickingImage, VK_FORMAT_R32_UINT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    EnqueueCleanupTask([this] {
+        vkDestroyImageView(m_Device, m_PickingImageView, nullptr);
+    });
+
+    const std::array attachments = {
+        m_PickingImageView,
+        m_DepthImageView
+    };
+
+    const VkFramebufferCreateInfo framebufferCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+        .renderPass = m_PickingRenderPass,
+        .attachmentCount = attachments.size(),
+        .pAttachments = attachments.data(),
+        .width = m_SwapChainExtent.width,
+        .height = m_SwapChainExtent.height,
+        .layers = 1
+    };
+
+    if (vkCreateFramebuffer(m_Device, &framebufferCreateInfo, nullptr, &m_PickingFramebuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create picking framebuffer!");
+    }
+}
+
+void Vulkan::RendererWithUi::CleanupPickingResources() const {
+    vkDestroyImageView(m_Device, m_PickingImageView, nullptr);
+    vkDestroyImage(m_Device, m_PickingImage, nullptr);
+    vkFreeMemory(m_Device, m_PickingMemory, nullptr);
+    vkDestroyFramebuffer(m_Device, m_PickingFramebuffer, nullptr);
+}
+
+void Vulkan::RendererWithUi::CreateGraphicsResources() {
+    Renderer::CreateGraphicsResources();
+
+    CreatePickingResources();
+    CreatePickingPipeline();
+    CreatePickingPipeline();
+}
+
+void Vulkan::RendererWithUi::CreatePickingRenderPass() {
+}
+
+void Vulkan::RendererWithUi::CreatePickingPipeline() {
 }

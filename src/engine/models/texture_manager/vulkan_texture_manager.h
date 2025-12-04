@@ -41,14 +41,12 @@ namespace Vulkan {
 
         [[nodiscard]] VkSampler GetSampler() const;
 
-        void Cleanup() override;
+        void GraphicMemoryCleanup() override;
 
         void Reset() override;
 
     private:
         void CreateTextureGPUResources(TextureId textureId);
-
-        void CreateDefaultTexture();
     };
 }
 

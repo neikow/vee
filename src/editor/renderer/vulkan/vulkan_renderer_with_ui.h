@@ -13,8 +13,13 @@ namespace Vulkan {
         ImDrawData *m_DrawData = nullptr;
         VkDescriptorPool m_ImguiDescriptorPool = VK_NULL_HANDLE;
 
-        using Renderer::UpdateTextureDescriptor;
-        using Renderer::UpdateGeometryBuffers;
+        VkImage m_PickingImage = VK_NULL_HANDLE;
+        VkDeviceMemory m_PickingMemory = VK_NULL_HANDLE;
+        VkImageView m_PickingImageView = VK_NULL_HANDLE;
+        VkFramebuffer m_PickingFramebuffer = VK_NULL_HANDLE;
+
+        VkRenderPass m_PickingRenderPass = VK_NULL_HANDLE;
+        VkPipeline m_PickingPipeline = VK_NULL_HANDLE;
 
     public:
         RendererWithUi() = default;
@@ -29,6 +34,16 @@ namespace Vulkan {
 
     private:
         void InitImgui();
+
+        void CreateGraphicsResources() override;
+
+        void CreatePickingRenderPass();
+
+        void CreatePickingPipeline();
+
+        void CreatePickingResources();
+
+        void CleanupPickingResources() const;
     };
 }
 

@@ -51,7 +51,7 @@ namespace Vulkan {
         std::vector<VkImageView> m_SwapChainImageViews;
         std::vector<VkFramebuffer> m_SwapChainFramebuffers;
 
-        VkRenderPass m_RenderPass = VK_NULL_HANDLE;
+        VkRenderPass m_MainRenderPass = VK_NULL_HANDLE;
 
         VkDescriptorSetLayout m_DescriptorSetLayout = VK_NULL_HANDLE;
         VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
@@ -91,6 +91,11 @@ namespace Vulkan {
         VkImageView m_ViewportImageView = VK_NULL_HANDLE;
         VkFramebuffer m_ViewportFramebuffer = VK_NULL_HANDLE;
         VkDescriptorSet m_ViewportDescriptorSet = VK_NULL_HANDLE;
+
+        VkImage m_DefaultTextureImage = VK_NULL_HANDLE;
+        VkDeviceMemory m_DefaultTextureMemory = VK_NULL_HANDLE;
+        VkImageView m_DefaultTextureImageView = VK_NULL_HANDLE;
+        VkFramebuffer m_DefaultTextureFramebuffer = VK_NULL_HANDLE;
 
         uint32_t m_CurrentFrame = 0;
         uint32_t m_ImageIndex = 0;
@@ -133,6 +138,20 @@ namespace Vulkan {
         void InitWindow(int width, int height, const std::string &appName);
 
         void InitVulkan(const std::string &appName, std::uint32_t version);
+
+        void CoreVulkanSetup(const std::string &appName, std::uint32_t version);
+
+        void CreateMissingTexture();
+
+        virtual void CreateGraphicsResources();
+
+        void SetSwapChainImageFormat();
+
+        void CreatePipelinesAndShaders();
+
+        void CreateBuffers();
+
+        void CreateDescriptorAndSyncObjects();
 
         void RecreateSwapChain();
 
@@ -206,7 +225,7 @@ namespace Vulkan {
 
         void CreateDescriptorSetLayout();
 
-        void CreateRenderPass();
+        void CreateMainRenderPass();
 
         [[nodiscard]] VkImageView CreateImageView(
             const VkImage &image,

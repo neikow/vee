@@ -12,7 +12,7 @@ public:
 
     virtual TextureId LoadTexture(const std::string &texturePath) = 0;
 
-    virtual void Cleanup() = 0;
+    virtual void GraphicMemoryCleanup() = 0;
 
     virtual void Reset() = 0;
 };

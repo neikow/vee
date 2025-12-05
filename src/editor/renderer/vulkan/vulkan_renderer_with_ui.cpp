@@ -518,7 +518,6 @@ void Vulkan::RendererWithUi::CreatePickingPipeline() {
     vkDestroyShaderModule(m_Device, vertShaderModule, nullptr);
 
     EnqueueCleanupTask([this] {
-        vkDestroyPipeline(m_Device, m_GraphicsPipeline, nullptr);
-        vkDestroyPipelineLayout(m_Device, m_PipelineLayout, nullptr);
+        vkDestroyPipeline(m_Device, m_PickingPipeline, nullptr);
     });
 }

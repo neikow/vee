@@ -37,6 +37,8 @@ class Editor {
 
     void DrawAssetManager() const;
 
+    void DrawUI();
+
 public:
     explicit Editor(const std::shared_ptr<Engine> &engine)
         : m_Engine(engine) {

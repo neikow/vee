@@ -27,7 +27,7 @@ class EntityManager {
 public:
     EntityManager() {
         m_Signatures.reserve(MAX_ENTITIES);
-        for (EntityID i = 0; i < MAX_ENTITIES; ++i) {
+        for (EntityID i = STARTING_ENTITY_ID; i < MAX_ENTITIES + STARTING_ENTITY_ID; ++i) {
             m_AvailableEntities.push(i);
             m_Signatures.emplace_back();
         }
@@ -46,16 +46,16 @@ public:
     }
 
     void SetSignature(const EntityID entityID, const Signature signature) {
-        m_Signatures[entityID] = signature;
+        m_Signatures[entityID - STARTING_ENTITY_ID] = signature;
     }
 
     [[nodiscard]] Signature GetSignature(const EntityID entityID) const {
-        return m_Signatures[entityID];
+        return m_Signatures[entityID - STARTING_ENTITY_ID];
     }
 
     [[nodiscard]] std::vector<EntityData> GetAllEntities() const {
         auto entities = std::vector<EntityData>{};
-        for (EntityID i = 0; i < m_LivingEntityCount; ++i) {
+        for (EntityID i = STARTING_ENTITY_ID; i < m_LivingEntityCount + STARTING_ENTITY_ID; ++i) {
             entities.push_back({i});
         }
         return entities;

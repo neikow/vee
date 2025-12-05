@@ -27,26 +27,13 @@ constexpr uint32_t HEIGHT = 1080;
 int main() {
     const auto g_Renderer = std::make_shared<Vulkan::RendererWithUi>();
 
-    const auto g_Engine = std::make_shared<Engine>(
-        std::static_pointer_cast<AbstractRenderer>(g_Renderer)
-    );
-
+    const auto g_Engine = std::make_shared<Engine>(g_Renderer);
     g_Engine->ToggleEditorMode(true);
-
     const auto g_Editor = std::make_shared<Editor>(g_Engine);
 
     bool hasError = false;
     try {
         g_Editor->LoadScene("../.editor_data/scenes/scene2.scene");
-
-        Signature signature;
-        signature.set(ComponentTypeHelper<CameraComponent>::ID);
-        signature.set(ComponentTypeHelper<EditorCameraTagComponent>::ID);
-        g_Engine->SetActiveCameraEntityId(
-            Utils::Entities::GetFirstEntityWithSignature(
-                g_Engine->GetScene()->GetEntityManager()->GetEntitiesWithSignature(signature)
-            )
-        );
 
         g_Editor->Run(WIDTH, HEIGHT);
     } catch (const std::exception &e) {

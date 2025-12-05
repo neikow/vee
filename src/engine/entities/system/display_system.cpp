@@ -21,13 +21,7 @@ void DisplaySystem::PrepareCamera(const EntityID cameraEntityId) const {
     );
 }
 
-void DisplaySystem::Render(const EntityID cameraEntityId) const {
-    PrepareCamera(cameraEntityId);
-
-    // Prepare Light
-    // TODO: Implement lights
-
-    // Prepare and submit draw calls for each entity
+void DisplaySystem::SubmitDrawCalls() const {
     for (const auto &entity: m_Entities) {
         const auto &transform = m_ComponentManager->GetComponent<TransformComponent>(entity);
         const auto &renderable = m_ComponentManager->GetComponent<RenderableComponent>(entity);
@@ -39,11 +33,18 @@ void DisplaySystem::Render(const EntityID cameraEntityId) const {
         );
 
         m_Renderer->SubmitDrawCall(
+            entity,
             worldMatrix,
             renderable.meshId,
             renderable.textureId
         );
     }
+}
 
-    m_Renderer->Draw();
+void DisplaySystem::PrepareForRendering(const EntityID cameraEntityId) const {
+    PrepareCamera(cameraEntityId);
+
+    // TODO: Implement lights
+
+    SubmitDrawCalls();
 }

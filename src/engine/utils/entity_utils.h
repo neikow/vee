@@ -2,6 +2,7 @@
 #define GAME_ENGINE_ENTITY_UTILS_H
 #include <iterator>
 #include <cstddef>
+#include <iostream>
 #include <vector>
 #include "../entities/types.h"
 
@@ -25,7 +26,7 @@ namespace Utils::Entities {
             const auto n = m_Signatures->size();
             while (m_Index < n) {
                 if (((*m_Signatures)[m_Index] & m_Query) == m_Query) {
-                    m_Current = static_cast<EntityID>(m_Index);
+                    m_Current = static_cast<EntityID>(m_Index + STARTING_ENTITY_ID);
                     return;
                 }
                 ++m_Index;

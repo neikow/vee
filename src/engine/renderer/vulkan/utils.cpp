@@ -193,6 +193,11 @@ namespace Vulkan::Utils {
         throw std::runtime_error("failed to find suitable memory type!");
     }
 
+    void ReadImagePixel(
+        VkDevice device, VkPhysicalDevice physicalDevice, VkQueue queue, VkCommandPool commandPool,
+        VkImage image, uint32_t width, uint32_t height, uint32_t posX, uint32_t posY) {
+    }
+
     VkFormat FindSupportedFormat(
         const VkPhysicalDevice &physicalDevice,
         const std::vector<VkFormat> &candidates,

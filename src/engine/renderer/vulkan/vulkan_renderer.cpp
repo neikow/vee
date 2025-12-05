@@ -26,6 +26,7 @@ auto vertexShader = R"(
         layout(push_constant) uniform PushConstants {
             mat4 model;
             uint textureId;
+            uint entityId;
         } pcs;
 
         layout(binding = 0) uniform UniformBufferObject {
@@ -83,11 +84,6 @@ constexpr auto MESSAGE_TYPE =
         VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 
 namespace Vulkan {
-    struct PushData {
-        glm::mat4 model;
-        TextureId textureID;
-    };
-
     VkDevice Renderer::GetDevice() const {
         return m_Device;
     }
@@ -1058,7 +1054,7 @@ namespace Vulkan {
         depthStencilInfo.front = {};
         depthStencilInfo.back = {};
 
-        VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+        std::array shaderStages = {vertShaderStageInfo, fragShaderStageInfo};
 
         std::vector dynamicStates = {
             VK_DYNAMIC_STATE_VIEWPORT,
@@ -1070,8 +1066,8 @@ namespace Vulkan {
         dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
         dynamicState.pDynamicStates = dynamicStates.data();
 
-        auto bindingDescription = VertexUtils::getBindingDescription();
-        auto attributeDescriptions = VertexUtils::getAttributeDescriptions();
+        auto bindingDescription = VertexUtils::GetBindingDescription();
+        auto attributeDescriptions = VertexUtils::GetAttributeDescriptions();
 
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -1108,12 +1104,9 @@ namespace Vulkan {
         rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
         rasterizer.depthClampEnable = VK_FALSE;
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-
         rasterizer.lineWidth = 1.0f;
-
         rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
         rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-
         rasterizer.depthBiasEnable = VK_FALSE;
         rasterizer.depthBiasConstantFactor = 0.0f;
         rasterizer.depthBiasClamp = 0.0f;
@@ -1163,9 +1156,8 @@ namespace Vulkan {
 
         VkGraphicsPipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        pipelineInfo.stageCount = 2;
-        pipelineInfo.pStages = shaderStages;
-
+        pipelineInfo.stageCount = shaderStages.size();
+        pipelineInfo.pStages = shaderStages.data();
         pipelineInfo.pVertexInputState = &vertexInputInfo;
         pipelineInfo.pInputAssemblyState = &inputAssembly;
         pipelineInfo.pViewportState = &viewportState;
@@ -1174,12 +1166,9 @@ namespace Vulkan {
         pipelineInfo.pDepthStencilState = &depthStencilInfo;
         pipelineInfo.pColorBlendState = &colorBlending;
         pipelineInfo.pDynamicState = &dynamicState;
-
         pipelineInfo.layout = m_PipelineLayout;
-
         pipelineInfo.renderPass = m_MainRenderPass;
         pipelineInfo.subpass = 0;
-
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
         pipelineInfo.basePipelineIndex = -1;
 
@@ -1295,10 +1284,8 @@ namespace Vulkan {
 
         VkSubpassDescription subpass{};
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-
         subpass.colorAttachmentCount = 1;
         subpass.pColorAttachments = &colorAttachmentRef;
-
         subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
         VkSubpassDependency dependency{};
@@ -1770,6 +1757,7 @@ namespace Vulkan {
             PushData pushData = {
                 drawCall.worldMatrix,
                 drawCall.textureId,
+                drawCall.entityId,
             };
 
             vkCmdPushConstants(
@@ -1844,7 +1832,11 @@ namespace Vulkan {
 
         // 4. Execute Draw Queue
         for (const auto &drawCall: m_DrawQueue) {
-            PushData pushData = {drawCall.worldMatrix, drawCall.textureId};
+            PushData pushData = {
+                drawCall.worldMatrix,
+                drawCall.textureId,
+                drawCall.entityId,
+            };
 
             vkCmdPushConstants(
                 commandBuffer, m_PipelineLayout,
@@ -1994,9 +1986,15 @@ namespace Vulkan {
         memcpy(m_UniformBuffersMapped[m_CurrentFrame], &ubo, sizeof(UniformBufferObject));
     }
 
-    void Renderer::SubmitDrawCall(const glm::mat4x4 &worldMatrix, const uint32_t meshId, const uint32_t textureId) {
+    void Renderer::SubmitDrawCall(
+        const EntityID entityId,
+        const glm::mat4x4 &worldMatrix,
+        const uint32_t meshId,
+        const uint32_t textureId
+    ) {
         m_DrawQueue.push_back({
             worldMatrix,
+            entityId,
             meshId,
             textureId
         });

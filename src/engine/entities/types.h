@@ -24,7 +24,8 @@ namespace Entities {
     using EntityID = std::uint32_t;
     using Signature = std::bitset<COMPONENTS_COUNT>;
 
-    inline EntityID NULL_ENTITY = -1;
+    inline EntityID NULL_ENTITY = 0;
+    inline EntityID STARTING_ENTITY_ID = 1;
 }
 
 #endif //GAME_ENGINE_ENTITY_TYPES_H

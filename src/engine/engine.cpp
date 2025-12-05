@@ -7,9 +7,13 @@ void Engine::Initialize(const int width, const int height, const std::string &ap
     m_Renderer->Initialize(width, height, appName, version);
 }
 
-void Engine::Update(const float deltaTime) const {
+void Engine::UpdateSystems(const float deltaTime) const {
     m_Scene->GetSystemManager()->UpdateSystems(m_Paused ? 0.0f : deltaTime);
-    m_Scene->GetDisplaySystem()->Render(m_ActiveCameraEntityId);
+}
+
+void Engine::PrepareForRendering() const {
+    m_Scene->GetDisplaySystem()->PrepareForRendering(m_ActiveCameraEntityId);
+    m_Renderer->PrepareForRendering();
 }
 
 void Engine::Shutdown() const {

@@ -21,6 +21,7 @@ namespace Vulkan {
 
     struct DrawCall {
         glm::mat4 worldMatrix;
+        Entities::EntityID entityId;
         std::uint32_t meshId;
         std::uint32_t textureId;
     };
@@ -114,7 +115,8 @@ namespace Vulkan {
 
         void UpdateCameraMatrix(const glm::mat4x4 &viewMatrix, const glm::mat4x4 &projectionMatrix) override;
 
-        void SubmitDrawCall(const glm::mat4x4 &worldMatrix, std::uint32_t meshId, std::uint32_t textureId) override;
+        void SubmitDrawCall(std::uint32_t entityId, const glm::mat4x4 &worldMatrix, uint32_t meshId,
+                            uint32_t textureId) override;
 
         void Cleanup() override;
 

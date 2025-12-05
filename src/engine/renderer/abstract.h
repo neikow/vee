@@ -3,8 +3,15 @@
 #include <glm/mat4x4.hpp>
 
 #include "imgui.h"
+#include "../entities/types.h"
 #include "../models/mesh_manager/mesh_manager.h"
 #include "../models/texture_manager/vulkan_texture_manager.h"
+
+struct PushData {
+    glm::mat4 worldMatrix;
+    TextureId textureID;
+    Entities::EntityID entityID;
+};
 
 using RendererInitTask = std::function<void()>;
 using RendererCleanupTask = std::function<void()>;
@@ -43,9 +50,9 @@ public:
     ) = 0;
 
     virtual void SubmitDrawCall(
+        std::uint32_t entityId,
         const glm::mat4x4 &worldMatrix,
-        std::uint32_t meshId,
-        std::uint32_t textureId
+        uint32_t meshId, uint32_t textureId
     ) = 0;
 
     virtual void Cleanup() = 0;
@@ -69,6 +76,9 @@ public:
     void EnqueueCleanupTask(const RendererCleanupTask &task);
 
     virtual ~AbstractRenderer() = default;
+
+    virtual void PrepareForRendering() {
+    }
 
 protected:
     void ExecuteInitTasks();

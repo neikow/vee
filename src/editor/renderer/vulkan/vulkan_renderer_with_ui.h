@@ -4,6 +4,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "imgui.h"
+#include "../../../engine/entities/types.h"
 #include "../../../engine/renderer/vulkan/vulkan_renderer.h"
 
 namespace Vulkan {
@@ -26,11 +27,11 @@ namespace Vulkan {
 
         void Initialize(int width, int height, const std::string &appName, uint32_t version) override;
 
-        void Draw() override;
-
         void SubmitUIDrawData(ImDrawData *drawData) override;
 
         void Cleanup() override;
+
+        Entities::EntityID GetEntityIDAt(double norm_x, double norm_y) const;
 
     private:
         void InitImgui();
@@ -44,6 +45,8 @@ namespace Vulkan {
         void CreatePickingResources();
 
         void CleanupPickingResources() const;
+
+        void PrepareForRendering() override;
     };
 }
 

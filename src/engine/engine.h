@@ -29,7 +29,9 @@ public:
 
     void Initialize(int width, int height, const std::string &appName, uint32_t version) const;
 
-    void Update(float deltaTime) const;
+    void UpdateSystems(float deltaTime) const;
+
+    void PrepareForRendering() const;
 
     void Shutdown() const;
 

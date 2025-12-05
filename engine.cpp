@@ -25,6 +25,7 @@
 #include "src/engine/entities/components_system/components/transform_component.h"
 #include "src/engine/entities/components_system/components/velocity_component.h"
 #include "src/engine/entities/components_system/tags/active_camera_tag_component.h"
+#include "src/engine/io/input_system.h"
 #include "src/engine/renderer/abstract.h"
 #include "src/engine/renderer/vulkan/vertex_utils.h"
 #include "src/engine/renderer/vulkan/vulkan_renderer.h"
@@ -46,12 +47,16 @@ int main() {
 
         Signature signature;
         signature.set(ComponentTypeHelper<CameraComponent>::ID);
+        signature.set(ComponentTypeHelper<TransformComponent>::ID);
         signature.set(ComponentTypeHelper<ActiveCameraTagComponent>::ID);
-        g_Engine->SetActiveCameraEntityId(
-            Utils::Entities::GetFirstEntityWithSignature(
-                g_Engine->GetScene()->GetEntityManager()->GetEntitiesWithSignature(signature)
-            )
+
+        const auto cameraId = Utils::Entities::GetFirstEntityWithSignature(
+            g_Engine->GetScene()->GetEntityManager()->GetEntitiesWithSignature(signature)
         );
+
+        std::cout << cameraId << std::endl;
+
+        g_Engine->SetActiveCameraEntityId(cameraId);
 
         auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -62,7 +67,10 @@ int main() {
             startTime = std::chrono::high_resolution_clock::now();
 
             glfwPollEvents();
-            g_Engine->Update(deltaTime);
+            g_Engine->UpdateSystems(deltaTime);
+            g_Engine->PrepareForRendering();
+            g_Engine->GetRenderer()->Draw();
+            InputSystem::UpdateEndOfFrame();
         }
     } catch (const std::exception &e) {
         std::cerr << e.what() << std::endl;

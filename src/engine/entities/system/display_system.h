@@ -21,10 +21,12 @@ public:
     void Update(float dt) override {
     };
 
-    void Render(EntityID cameraEntityId) const;
+    void PrepareForRendering(EntityID cameraEntityId) const;
 
 private:
     void PrepareCamera(EntityID cameraEntityId) const;
+
+    void SubmitDrawCalls() const;
 };
 
 

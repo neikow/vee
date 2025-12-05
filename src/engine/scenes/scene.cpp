@@ -16,9 +16,6 @@ std::string &Scene::GetPath() {
     return m_Path;
 }
 
-EntityID Scene::FindEntityInScene(double normX, double normY) {
-}
-
 void Scene::RegisterInternalSystems(const bool editorMode) {
     Signature renderableSignature;
     renderableSignature.set(ComponentTypeHelper<RenderableComponent>::ID);

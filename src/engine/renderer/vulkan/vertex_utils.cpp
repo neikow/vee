@@ -3,7 +3,7 @@
 #include "../base_vertex.h"
 
 namespace Vulkan {
-    VkVertexInputBindingDescription VertexUtils::getBindingDescription() {
+    VkVertexInputBindingDescription VertexUtils::GetBindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
         bindingDescription.binding = 0;
         bindingDescription.stride = sizeof(Vertex);
@@ -12,7 +12,7 @@ namespace Vulkan {
         return bindingDescription;
     }
 
-    std::array<VkVertexInputAttributeDescription, 3> VertexUtils::getAttributeDescriptions() {
+    std::array<VkVertexInputAttributeDescription, 3> VertexUtils::GetAttributeDescriptions() {
         std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
 
         attributeDescriptions[0].binding = 0;
@@ -30,6 +30,17 @@ namespace Vulkan {
         attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
         attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
+
+        return attributeDescriptions;
+    }
+
+    std::array<VkVertexInputAttributeDescription, 1> VertexUtils::GetPickingAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions{};
+
+        attributeDescriptions[0].binding = 0;
+        attributeDescriptions[0].location = 0;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
         return attributeDescriptions;
     }

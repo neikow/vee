@@ -70,8 +70,6 @@ public:
 
     std::string &GetPath();
 
-    EntityID FindEntityInScene(double normX, double normY);
-
 private:
     void RegisterInternalSystems(bool editorMode);
 

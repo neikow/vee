@@ -211,8 +211,8 @@ void Editor::ReloadCurrentSceneFromFile() {
 }
 
 void Editor::HandleEntitySelectionWithinViewport(const double normX, const double normY) {
-    std::cout << normX << " " << normY << std::endl;
-    m_SelectedEntity = m_Engine->GetScene()->FindEntityInScene(normX, normY);
+    const auto renderer = std::static_pointer_cast<Vulkan::RendererWithUi>(m_Engine->GetRenderer());
+    m_SelectedEntity = renderer->GetEntityIDAt(normX, normY);
 }
 
 void Editor::DrawViewport() {
@@ -287,6 +287,22 @@ void Editor::DrawAssetManager() const {
     }
 }
 
+void Editor::DrawUI() {
+    ImGui::NewFrame();
+    ImGui::DockSpaceOverViewport(
+        ImGui::GetID("MyDockSpace"),
+        ImGui::GetMainViewport()
+    );
+
+    DrawSceneHierarchy();
+    DrawInspector();
+    DrawAssetManager();
+    DrawViewport();
+
+    ImGui::Render();
+    m_Engine->GetRenderer()->SubmitUIDrawData(ImGui::GetDrawData());
+}
+
 void Editor::Run(const int width, const int height) {
     m_Engine->Initialize(width, height, "Editor", VK_MAKE_VERSION(1, 0, 0));
 
@@ -299,23 +315,13 @@ void Editor::Run(const int width, const int height) {
         const float deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
         lastTime = currentTime;
 
-        m_Engine->Update(deltaTime);
+        m_Engine->UpdateSystems(deltaTime);
 
-        ImGui::NewFrame();
+        m_Engine->PrepareForRendering();
 
-        ImGui::DockSpaceOverViewport(
-            ImGui::GetID("MyDockSpace"),
-            ImGui::GetMainViewport()
-        );
+        DrawUI();
 
-        DrawSceneHierarchy();
-        DrawInspector();
-        DrawAssetManager();
-        DrawViewport();
-
-        ImGui::Render();
-
-        m_Engine->GetRenderer()->SubmitUIDrawData(ImGui::GetDrawData());
+        m_Engine->GetRenderer()->Draw();
 
         InputSystem::UpdateEndOfFrame();
     }

@@ -25,6 +25,7 @@
 #include "src/engine/entities/components_system/components/transform_component.h"
 #include "src/engine/entities/components_system/components/velocity_component.h"
 #include "src/engine/entities/components_system/tags/active_camera_tag_component.h"
+#include "src/engine/entities/system/camera_system.h"
 #include "src/engine/io/input_system.h"
 #include "src/engine/renderer/abstract.h"
 #include "src/engine/renderer/vulkan/vertex_utils.h"
@@ -38,11 +39,25 @@ int main() {
 
     const auto g_Engine = std::make_shared<Engine>(std::static_pointer_cast<AbstractRenderer>(g_Renderer));
 
-    g_Engine->LoadScene("../.editor_data/scenes/scene2.scene");
-
     bool hasError = false;
 
     try {
+        g_Engine->RegisterSystems([&g_Renderer](auto, auto &systemManager, auto &componentManager) {
+            Signature activeCameraSignature;
+            activeCameraSignature.set(ComponentTypeHelper<CameraComponent>::ID);
+            activeCameraSignature.set(ComponentTypeHelper<TransformComponent>::ID);
+            activeCameraSignature.set(ComponentTypeHelper<ActiveCameraTagComponent>::ID);
+            systemManager->template RegisterSystem<CameraSystem>(
+                std::make_shared<CameraSystem>(
+                    g_Renderer,
+                    componentManager
+                )
+            );
+            systemManager->template SetSignature<CameraSystem>(activeCameraSignature);
+        });
+
+        g_Engine->LoadScene("../.editor_data/scenes/scene2.scene");
+
         g_Engine->Initialize(WIDTH, HEIGHT, "Engine", VK_MAKE_VERSION(1, 0, 0));
 
         Signature signature;
@@ -53,8 +68,6 @@ int main() {
         const auto cameraId = Utils::Entities::GetFirstEntityWithSignature(
             g_Engine->GetScene()->GetEntityManager()->GetEntitiesWithSignature(signature)
         );
-
-        std::cout << cameraId << std::endl;
 
         g_Engine->SetActiveCameraEntityId(cameraId);
 

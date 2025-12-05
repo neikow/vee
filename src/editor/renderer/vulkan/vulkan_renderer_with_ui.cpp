@@ -283,7 +283,6 @@ void Vulkan::RendererWithUi::PrepareForRendering() {
 void Vulkan::RendererWithUi::CreateGraphicsResources() {
     Renderer::CreateGraphicsResources();
 
-
     CreatePickingRenderPass();
     CreatePickingPipeline();
     CreatePickingResources();

@@ -5,7 +5,6 @@
 #include "../../engine/io/input_system.h"
 
 #include "../../engine/renderer/abstract.h"
-#include "../../engine/entities/components_system/components/transform_component.h"
 #include "../../engine/entities/components_system/components/camera_component.h"
 
 

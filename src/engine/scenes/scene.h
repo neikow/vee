@@ -1,6 +1,7 @@
 #ifndef VEE_SCENE_H
 #define VEE_SCENE_H
 #include "../entities/manager.h"
+#include "../entities/system_registration.h"
 #include "../entities/components_system/component_manager.h"
 #include "../entities/system/display_system.h"
 #include "../renderer/vulkan/vulkan_renderer.h"
@@ -24,7 +25,7 @@ public:
     explicit Scene(
         const std::string &path,
         const std::shared_ptr<AbstractRenderer> &renderer,
-        const bool editorMode
+        const std::vector<SystemRegistrationFunction> &systemRegistrations
     ) : m_Renderer(renderer) {
         m_Path = path;
 
@@ -33,7 +34,11 @@ public:
         m_ComponentManager = std::make_shared<ComponentManager>(m_SystemManager, m_EntityManager);
 
         RegisterInternalComponents();
-        RegisterInternalSystems(editorMode);
+        RegisterInternalSystems();
+
+        for (const auto &regFunction: systemRegistrations) {
+            regFunction(m_EntityManager, m_SystemManager, m_ComponentManager);
+        }
     }
 
     void SetName(const std::string &name) {
@@ -71,7 +76,7 @@ public:
     std::string &GetPath();
 
 private:
-    void RegisterInternalSystems(bool editorMode);
+    void RegisterInternalSystems();
 
     void RegisterInternalComponents() const;
 };

@@ -148,6 +148,8 @@ void Editor::DrawInspector() {
 
                 ImGui::DragFloat("Far Plane", &camera.farPlane, 0.1f, camera.nearPlane + 0.1f, 10000.0f);
 
+                ImGui::DragFloat("Aspect Ratio", &camera.aspectRatio, 0.01f, 0.0f, 2.0f);
+
                 if (camera.projection == ORTHOGRAPHIC) {
                     ImGui::DragFloat("Ortho Scale", &camera.orthoScale, 0.1f, 0.1f, 1000.0f);
                 }
@@ -330,24 +332,9 @@ void Editor::Run(const int width, const int height) {
 }
 
 void Editor::CreateEditorCamera(const std::shared_ptr<Scene> &scene) const {
-    scene->GetComponentManager()->RegisterComponent<EditorCameraTagComponent>();
-
     const auto editorCamera = scene->CreateEntity();
     const auto componentManager = scene->GetComponentManager();
     const auto systemManager = scene->GetSystemManager();
-
-    Signature editorCameraSignature;
-    editorCameraSignature.set(ComponentTypeHelper<CameraComponent>::ID);
-    editorCameraSignature.set(ComponentTypeHelper<TransformComponent>::ID);
-    editorCameraSignature.set(ComponentTypeHelper<EditorCameraTagComponent>::ID);
-    systemManager->RegisterSystem<EditorCameraSystem>(
-        std::make_shared<EditorCameraSystem>(
-            m_Engine->GetRenderer(),
-            componentManager,
-            this
-        )
-    );
-    systemManager->SetSignature<EditorCameraSystem>(editorCameraSignature);
 
     componentManager->AddComponent<InternalTagComponent>(
         editorCamera,
@@ -367,7 +354,7 @@ void Editor::CreateEditorCamera(const std::shared_ptr<Scene> &scene) const {
         CameraComponent{
             .projection = PERSPECTIVE,
             .fieldOfView = 90.0f,
-            .aspectRatio = 16.0f / 9.0f,
+            .aspectRatio = 0.0f,
             .nearPlane = 0.1f,
             .farPlane = 1000.0f
         }
@@ -381,7 +368,5 @@ void Editor::CreateEditorCamera(const std::shared_ptr<Scene> &scene) const {
 }
 
 void Editor::CreateEditorInternalEntities() const {
-    const auto scene = m_Engine->GetScene();
-
-    CreateEditorCamera(scene);
+    CreateEditorCamera(m_Engine->GetScene());
 }

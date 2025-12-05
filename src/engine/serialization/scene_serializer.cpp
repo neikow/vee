@@ -1,5 +1,6 @@
 #include "scene_serializer.h"
 
+#include "../engine.h"
 #include "../entities/components_system/components/camera_component.h"
 #include "../entities/components_system/components/transform_component.h"
 #include "../entities/components_system/components/camera_component.h"
@@ -157,9 +158,9 @@ void DeserializeSceneV0(
 std::unique_ptr<Scene> SceneSerializer::LoadScene(
     const std::string &scenePath,
     const std::shared_ptr<AbstractRenderer> &renderer,
-    const bool editorMode
+    const std::vector<SystemRegistrationFunction> &systemRegistrations
 ) {
-    auto scene = std::make_unique<Scene>(scenePath, renderer, editorMode);
+    auto scene = std::make_unique<Scene>(scenePath, renderer, systemRegistrations);
 
     YAML::Node data;
     try {

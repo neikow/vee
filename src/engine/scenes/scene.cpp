@@ -16,7 +16,7 @@ std::string &Scene::GetPath() {
     return m_Path;
 }
 
-void Scene::RegisterInternalSystems(const bool editorMode) {
+void Scene::RegisterInternalSystems() {
     Signature renderableSignature;
     renderableSignature.set(ComponentTypeHelper<RenderableComponent>::ID);
     renderableSignature.set(ComponentTypeHelper<TransformComponent>::ID);
@@ -28,21 +28,6 @@ void Scene::RegisterInternalSystems(const bool editorMode) {
         )
     );
     m_SystemManager->SetSignature<DisplaySystem>(renderableSignature);
-
-    Signature activeCameraSignature;
-    activeCameraSignature.set(ComponentTypeHelper<CameraComponent>::ID);
-    activeCameraSignature.set(ComponentTypeHelper<TransformComponent>::ID);
-    if (!editorMode) {
-        auto sceneCameraSignature = activeCameraSignature;
-        sceneCameraSignature.set(ComponentTypeHelper<ActiveCameraTagComponent>::ID);
-        m_SystemManager->RegisterSystem<CameraSystem>(
-            std::make_shared<CameraSystem>(
-                m_Renderer,
-                m_ComponentManager
-            )
-        );
-        m_SystemManager->SetSignature<CameraSystem>(sceneCameraSignature);
-    }
 
     Signature movementSignature;
     movementSignature.set(ComponentTypeHelper<TransformComponent>::ID);

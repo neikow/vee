@@ -14,7 +14,8 @@ class SceneSerializer {
 public:
     static std::unique_ptr<Scene> LoadScene(
         const std::string &scenePath,
-        const std::shared_ptr<AbstractRenderer> &renderer, bool editorMode
+        const std::shared_ptr<AbstractRenderer> &renderer, const std::vector<SystemRegistrationFunction> &
+        systemRegistrations
     );
 };
 

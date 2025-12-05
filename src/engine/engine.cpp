@@ -11,6 +11,10 @@ void Engine::UpdateSystems(const float deltaTime) const {
     m_Scene->GetSystemManager()->UpdateSystems(m_Paused ? 0.0f : deltaTime);
 }
 
+void Engine::RegisterSystems(const SystemRegistrationFunction &regFunction) {
+    m_SystemRegistrations.push_back(regFunction);
+}
+
 void Engine::PrepareForRendering() const {
     m_Scene->GetDisplaySystem()->PrepareForRendering(m_ActiveCameraEntityId);
     m_Renderer->PrepareForRendering();
@@ -23,7 +27,7 @@ void Engine::Shutdown() const {
 
 void Engine::LoadScene(const std::string &scenePath) {
     if (m_Renderer->Initialized()) m_Renderer->Reset();
-    m_Scene = SceneSerializer::LoadScene(scenePath, m_Renderer, m_IsEditorMode);
+    m_Scene = SceneSerializer::LoadScene(scenePath, m_Renderer, m_SystemRegistrations);
 }
 
 bool Engine::Paused() const {
@@ -51,5 +55,5 @@ void Engine::Resume() {
 }
 
 void Engine::Reset() {
-    m_Scene = SceneSerializer::LoadScene(m_Scene->GetPath(), m_Renderer, m_IsEditorMode);
+    m_Scene = SceneSerializer::LoadScene(m_Scene->GetPath(), m_Renderer, m_SystemRegistrations);
 }

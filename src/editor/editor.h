@@ -63,7 +63,7 @@ public:
 
     void CreateEditorInternalEntities() const;
 
-    void LoadScene(const std::string &path) {
+    void LoadScene(const std::string &path) const {
         m_Engine->Pause();
         m_SceneManager->LoadScene(path);
         CreateEditorInternalEntities();

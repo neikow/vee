@@ -89,16 +89,8 @@ void Editor::DrawSceneHierarchy() {
 }
 
 
-void Editor::DrawInspector() {
+void Editor::DrawEntityInspector() const {
     const auto componentManager = m_Engine->GetScene()->GetComponentManager();
-    ImGui::Begin("Component Inspector");
-
-    if (m_SelectedEntity == NULL_ENTITY) {
-        ImGui::Text("No entity selected.");
-        ImGui::End();
-        return;
-    }
-
     const auto entityComponents = componentManager->GetEntityComponents(m_SelectedEntity);
     for (const auto &componentTypeID: entityComponents) {
         constexpr ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen;
@@ -204,6 +196,19 @@ void Editor::DrawInspector() {
             }
         }
     }
+}
+
+void Editor::DrawInspector() {
+    ImGui::Begin("Inspector");
+
+    if (m_SelectedEntity == NULL_ENTITY) {
+        ImGui::Text("No entity selected.");
+        ImGui::End();
+        return;
+    }
+
+    DrawEntityInspector();
+
     ImGui::End();
 }
 

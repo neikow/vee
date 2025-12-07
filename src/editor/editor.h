@@ -27,6 +27,8 @@ class Editor {
 
     void DrawSceneHierarchy();
 
+    void DrawEntityInspector() const;
+
     void DrawInspector();
 
     void ReloadCurrentSceneFromFile();

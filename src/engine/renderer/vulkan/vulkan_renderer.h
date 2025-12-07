@@ -111,6 +111,8 @@ namespace Vulkan {
         void RenderScene(const VkCommandBuffer &commandBuffer, const VkFramebuffer &framebuffer,
                          VkExtent2D extent) const;
 
+        virtual void RenderToScreen(const VkCommandBuffer &cmd);
+
         void Draw() override;
 
         void UpdateCameraMatrix(const glm::mat4x4 &viewMatrix, const glm::mat4x4 &projectionMatrix) override;
@@ -125,8 +127,6 @@ namespace Vulkan {
         bool ShouldClose() override;
 
         void WaitIdle() override;
-
-        void SubmitUIDrawData(ImDrawData *drawData) override;
 
         [[nodiscard]] VkDevice GetDevice() const;
 

@@ -65,8 +65,6 @@ public:
 
     virtual float GetAspectRatio() = 0;
 
-    virtual void SubmitUIDrawData(ImDrawData *drawData) = 0;
-
     virtual void UpdateGeometryBuffers() = 0;
 
     virtual void UpdateTextureDescriptor(TextureId textureId) = 0;

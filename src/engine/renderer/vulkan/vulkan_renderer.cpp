@@ -1851,6 +1851,10 @@ namespace Vulkan {
         vkCmdEndRenderPass(commandBuffer);
     }
 
+    void Renderer::RenderToScreen(const VkCommandBuffer &cmd) {
+        RenderScene(cmd, m_SwapChainFramebuffers[m_ImageIndex], m_SwapChainExtent);
+    }
+
     void Renderer::Draw() {
         vkWaitForFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
@@ -1879,56 +1883,7 @@ namespace Vulkan {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
-        if (m_RenderMode == RenderMode::EDITOR) {
-            RenderScene(cmd, m_ViewportFramebuffer, m_ViewportExtent);
-
-            VkImageMemoryBarrier barrier{};
-            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.image = m_ViewportImage;
-            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            barrier.subresourceRange.baseMipLevel = 0;
-            barrier.subresourceRange.levelCount = 1;
-            barrier.subresourceRange.baseArrayLayer = 0;
-            barrier.subresourceRange.layerCount = 1;
-            barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-            vkCmdPipelineBarrier(
-                cmd,
-                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                0,
-                0, nullptr,
-                0, nullptr,
-                1, &barrier
-            );
-
-            VkRenderPassBeginInfo uiPassInfo{};
-            uiPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-            uiPassInfo.renderPass = m_MainRenderPass;
-            uiPassInfo.framebuffer = m_SwapChainFramebuffers[m_ImageIndex];
-            uiPassInfo.renderArea.extent = m_SwapChainExtent;
-            uiPassInfo.clearValueCount = 0;
-            std::array<VkClearValue, 2> clearValues{};
-            clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-            clearValues[1].depthStencil = {1.0f, 0};
-            uiPassInfo.clearValueCount = 2;
-            uiPassInfo.pClearValues = clearValues.data();
-
-            vkCmdBeginRenderPass(cmd, &uiPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-            if (ImDrawData *drawData = ImGui::GetDrawData()) {
-                ImGui_ImplVulkan_RenderDrawData(drawData, cmd);
-            }
-            vkCmdEndRenderPass(cmd);
-        } else {
-            RenderScene(cmd, m_SwapChainFramebuffers[m_ImageIndex], m_SwapChainExtent);
-        }
+        RenderToScreen(cmd);
 
         if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
@@ -2045,8 +2000,5 @@ namespace Vulkan {
 
     void Renderer::WaitIdle() {
         vkDeviceWaitIdle(m_Device);
-    }
-
-    void Renderer::SubmitUIDrawData(ImDrawData *drawData) {
     }
 }

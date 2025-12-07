@@ -302,7 +302,6 @@ void Editor::DrawUI() {
     DrawViewport();
 
     ImGui::Render();
-    m_Engine->GetRenderer()->SubmitUIDrawData(ImGui::GetDrawData());
 }
 
 void Editor::Run(const int width, const int height) {

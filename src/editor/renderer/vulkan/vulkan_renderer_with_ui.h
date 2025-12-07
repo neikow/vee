@@ -11,7 +11,6 @@ namespace Vulkan {
     class Renderer;
 
     class RendererWithUi final : public Renderer {
-        ImDrawData *m_DrawData = nullptr;
         VkDescriptorPool m_ImguiDescriptorPool = VK_NULL_HANDLE;
 
         VkImage m_PickingImage = VK_NULL_HANDLE;
@@ -27,8 +26,6 @@ namespace Vulkan {
 
         void Initialize(int width, int height, const std::string &appName, uint32_t version) override;
 
-        void SubmitUIDrawData(ImDrawData *drawData) override;
-
         void Cleanup() override;
 
         Entities::EntityID GetEntityIDAt(double norm_x, double norm_y) const;
@@ -41,6 +38,8 @@ namespace Vulkan {
         void CreatePickingRenderPass();
 
         void CreatePickingPipeline();
+
+        void RenderToScreen(const VkCommandBuffer &cmd) override;
 
         void CreatePickingResources();
 

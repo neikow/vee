@@ -37,9 +37,9 @@ int main() {
         // TODO : move this initialization inside the Editor class
         g_Engine->RegisterSystems(
             [&g_Renderer, &g_Editor](
-        auto,
-        auto systemManager,
-        auto componentManager
+        const auto &,
+        const auto &systemManager,
+        const auto &componentManager
     ) {
                 componentManager->template RegisterComponent<EditorCameraTagComponent>();
 

@@ -16,13 +16,15 @@ void Vulkan::RendererWithUi::Initialize(
 ) {
     Renderer::Initialize(width, height, appName, version);
     InitImgui();
-    ToggleRenderMode(RenderMode::EDITOR);
+    CreateViewportResources();
+}
+
+float Vulkan::RendererWithUi::GetAspectRatio() {
+    return static_cast<float>(m_ViewportExtent.width) / static_cast<float>(m_ViewportExtent.height);
 }
 
 void Vulkan::RendererWithUi::Cleanup() {
-    // This is a hack as the current architecture does not provide a way to destroy the viewport resources
-    // before destroying ImGui resources.
-    ToggleRenderMode(RenderMode::ENGINE);
+    CleanupViewportResources();
 
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
@@ -278,7 +280,6 @@ void Vulkan::RendererWithUi::PrepareForRendering() {
 
 void Vulkan::RendererWithUi::CreateGraphicsResources() {
     Renderer::CreateGraphicsResources();
-
     CreatePickingRenderPass();
     CreatePickingPipeline();
     CreatePickingResources();
@@ -342,6 +343,57 @@ void Vulkan::RendererWithUi::CreatePickingRenderPass() {
     EnqueueCleanupTask([this] {
         vkDestroyRenderPass(m_Device, m_PickingRenderPass, nullptr);
     });
+}
+
+void Vulkan::RendererWithUi::CreateViewportResources() {
+    if (m_ViewportExtent.width == 0 || m_ViewportExtent.height == 0) {
+        m_ViewportExtent = m_SwapChainExtent;
+    }
+
+    CreateImage(
+        m_ViewportExtent.width, m_ViewportExtent.height,
+        m_SwapChainImageFormat, VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        m_ViewportImage, m_ViewportMemory, {}
+    );
+
+    m_ViewportImageView = CreateImageView(m_ViewportImage, m_SwapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    const std::array attachments = {
+        m_ViewportImageView,
+        m_DepthImageView
+    };
+
+    VkFramebufferCreateInfo framebufferInfo{};
+    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebufferInfo.renderPass = m_MainRenderPass;
+    framebufferInfo.attachmentCount = attachments.size();
+    framebufferInfo.pAttachments = attachments.data();
+    framebufferInfo.width = m_ViewportExtent.width;
+    framebufferInfo.height = m_ViewportExtent.height;
+    framebufferInfo.layers = 1;
+
+    if (vkCreateFramebuffer(m_Device, &framebufferInfo, nullptr, &m_ViewportFramebuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create viewport framebuffer!");
+    }
+
+    m_ViewportDescriptorSet = ImGui_ImplVulkan_AddTexture(
+        m_TextureSampler,
+        m_ViewportImageView,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    );
+}
+
+void Vulkan::RendererWithUi::CleanupViewportResources() const {
+    vkDeviceWaitIdle(m_Device);
+
+    vkDestroyImageView(m_Device, m_ViewportImageView, nullptr);
+    vkDestroyImage(m_Device, m_ViewportImage, nullptr);
+    vkFreeMemory(m_Device, m_ViewportMemory, nullptr);
+    vkDestroyFramebuffer(m_Device, m_ViewportFramebuffer, nullptr);
+
+    ImGui_ImplVulkan_RemoveTexture(m_ViewportDescriptorSet);
 }
 
 void Vulkan::RendererWithUi::CreatePickingPipeline() {
@@ -566,4 +618,20 @@ void Vulkan::RendererWithUi::RenderToScreen(const VkCommandBuffer &cmd) {
     }
 
     vkCmdEndRenderPass(cmd);
+}
+
+void Vulkan::RendererWithUi::UpdateViewportSize(const uint32_t width, const uint32_t height) {
+    if (width != m_ViewportExtent.width || height != m_ViewportExtent.height) {
+        m_ViewportExtent.width = width;
+        m_ViewportExtent.height = height;
+
+        vkDeviceWaitIdle(m_Device);
+
+        CleanupViewportResources();
+        CreateViewportResources();
+    }
+}
+
+VkDescriptorSet Vulkan::RendererWithUi::GetViewportDescriptorSet() const {
+    return m_ViewportDescriptorSet;
 }

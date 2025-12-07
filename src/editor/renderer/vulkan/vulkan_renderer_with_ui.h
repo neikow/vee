@@ -13,6 +13,13 @@ namespace Vulkan {
     class RendererWithUi final : public Renderer {
         VkDescriptorPool m_ImguiDescriptorPool = VK_NULL_HANDLE;
 
+        VkExtent2D m_ViewportExtent = {};
+        VkImage m_ViewportImage = VK_NULL_HANDLE;
+        VkDeviceMemory m_ViewportMemory = VK_NULL_HANDLE;
+        VkImageView m_ViewportImageView = VK_NULL_HANDLE;
+        VkFramebuffer m_ViewportFramebuffer = VK_NULL_HANDLE;
+        VkDescriptorSet m_ViewportDescriptorSet = VK_NULL_HANDLE;
+
         VkImage m_PickingImage = VK_NULL_HANDLE;
         VkDeviceMemory m_PickingMemory = VK_NULL_HANDLE;
         VkImageView m_PickingImageView = VK_NULL_HANDLE;
@@ -26,14 +33,24 @@ namespace Vulkan {
 
         void Initialize(int width, int height, const std::string &appName, uint32_t version) override;
 
+        float GetAspectRatio() override;
+
         void Cleanup() override;
 
         Entities::EntityID GetEntityIDAt(double norm_x, double norm_y) const;
+
+        [[nodiscard]] VkDescriptorSet GetViewportDescriptorSet() const;
+
+        void UpdateViewportSize(uint32_t width, uint32_t height);
 
     private:
         void InitImgui();
 
         void CreateGraphicsResources() override;
+
+        void CreateViewportResources();
+
+        void CleanupViewportResources() const;
 
         void CreatePickingRenderPass();
 

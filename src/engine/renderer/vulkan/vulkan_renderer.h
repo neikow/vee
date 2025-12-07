@@ -12,11 +12,6 @@
 #include "../../models/texture_manager/vulkan_texture_manager.h"
 
 namespace Vulkan {
-    enum class RenderMode {
-        ENGINE,
-        EDITOR
-    };
-
     constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
     struct DrawCall {
@@ -29,8 +24,6 @@ namespace Vulkan {
     class Renderer : public AbstractRenderer {
         friend class TextureManager;
         friend class RendererWithUi;
-
-        RenderMode m_RenderMode = RenderMode::ENGINE;
 
         GLFWwindow *m_Window = nullptr;
         bool m_FramebufferResized = false;
@@ -86,13 +79,6 @@ namespace Vulkan {
         std::vector<VkSemaphore> m_RenderFinishedSemaphores;
         std::vector<VkFence> m_InFlightFences;
 
-        VkExtent2D m_ViewportExtent = {};
-        VkImage m_ViewportImage = VK_NULL_HANDLE;
-        VkDeviceMemory m_ViewportMemory = VK_NULL_HANDLE;
-        VkImageView m_ViewportImageView = VK_NULL_HANDLE;
-        VkFramebuffer m_ViewportFramebuffer = VK_NULL_HANDLE;
-        VkDescriptorSet m_ViewportDescriptorSet = VK_NULL_HANDLE;
-
         VkImage m_DefaultTextureImage = VK_NULL_HANDLE;
         VkDeviceMemory m_DefaultTextureMemory = VK_NULL_HANDLE;
         VkImageView m_DefaultTextureImageView = VK_NULL_HANDLE;
@@ -131,10 +117,6 @@ namespace Vulkan {
         [[nodiscard]] VkDevice GetDevice() const;
 
         float GetAspectRatio() override;
-
-        void ToggleRenderMode(RenderMode mode);
-
-        void UpdateViewportSize(uint32_t width, uint32_t height);
 
     private:
         void InitWindow(int width, int height, const std::string &appName);
@@ -257,16 +239,9 @@ namespace Vulkan {
 
         static void FramebufferResizeCallback(GLFWwindow *window, int, int);
 
-        void CreateViewportResources();
-
-        void CleanupViewportResources() const;
-
         void UpdateTextureDescriptor(TextureId textureId) override;
 
         void UpdateGeometryBuffers() override;
-
-    public:
-        [[nodiscard]] VkDescriptorSet GetViewportDescriptorSet() const;
     };
 }
 

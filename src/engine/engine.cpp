@@ -57,3 +57,13 @@ void Engine::Resume() {
 void Engine::Reset() {
     m_Scene = SceneSerializer::LoadScene(m_Scene->GetPath(), m_Renderer, m_SystemRegistrations);
 }
+
+void Engine::NewEmptyScene() {
+    if (m_Renderer->Initialized()) m_Renderer->Reset();
+    m_Scene = SceneSerializer::LoadScene(
+        "../src/editor/assets/scenes/empty.scene",
+        m_Renderer,
+        m_SystemRegistrations
+    );
+    m_Scene->SetPath("");
+}

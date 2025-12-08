@@ -12,7 +12,7 @@ class AbstractRenderer;
 namespace Vulkan {
     class Renderer;
 
-    struct TextureInfo {
+    struct TextureInfo final : ITextureInfo {
         VkImage image = VK_NULL_HANDLE;
         VkDeviceMemory imageMemory = VK_NULL_HANDLE;
         VkImageView imageView = VK_NULL_HANDLE;
@@ -40,6 +40,8 @@ namespace Vulkan {
         [[nodiscard]] VkImageView GetImageView(TextureId textureId) const;
 
         [[nodiscard]] VkSampler GetSampler() const;
+
+        void DumpLoadedTextures(YAML::Emitter &out) const override;
 
         void GraphicMemoryCleanup() override;
 

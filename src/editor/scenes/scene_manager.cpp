@@ -3,13 +3,14 @@
 #include <dirent.h>
 #include <sys/types.h>
 
-#include "../../engine/entities/components_system/tags/editor_camera_tag_component.h"
+#include "../../engine/serialization/scene_serializer.h"
 #include "yaml-cpp/depthguard.h"
 #include "yaml-cpp/node/node.h"
 #include "yaml-cpp/node/parse.h"
 
 
 void SceneManager::NewEmptyScene() {
+    m_Engine->NewEmptyScene();
 }
 
 SceneData ParseSceneFile(const std::string &filePath) {
@@ -67,5 +68,19 @@ void SceneManager::LoadScene(const std::string &path) {
     m_Engine->LoadScene(path);
 }
 
-void SceneManager::SaveScene(const std::string &path) {
+void SceneManager::SaveScene(const std::string &path, const std::string &sceneName) {
+    const auto scene = m_Engine->GetScene();
+
+    if (scene == nullptr) {
+        std::cerr << "[ERROR] No scene loaded, cannot save." << std::endl;
+        return;
+    }
+
+    scene->SetName(sceneName);
+
+    SceneSerializer::SaveScene(
+        path,
+        scene,
+        SceneVersion::V_0
+    );
 }

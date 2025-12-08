@@ -75,6 +75,8 @@ public:
 
     std::string &GetPath();
 
+    void SetPath(const std::string &path);
+
 private:
     void RegisterInternalSystems();
 

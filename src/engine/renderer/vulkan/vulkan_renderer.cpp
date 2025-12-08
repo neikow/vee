@@ -1906,6 +1906,7 @@ namespace Vulkan {
     void Renderer::Reset() {
         GetMeshManager()->Reset();
         GetTextureManager()->Reset();
+        m_DrawQueue.clear();
     }
 
 

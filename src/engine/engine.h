@@ -56,6 +56,8 @@ public:
     void Resume();
 
     void Reset();
+
+    void NewEmptyScene();
 };
 
 #endif //GAME_ENGINE_ENGINE_H

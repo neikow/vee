@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "../engine/engine.h"
+#include "io/shortcut_manager.h"
 #include "scenes/scene_manager.h"
 #include "settings/editor_settings.h"
 
@@ -10,11 +11,14 @@ struct EditorState {
     bool isViewportFocused = false;
     bool isViewportHovered = false;
     glm::vec<2, uint32_t> viewportSize = {0, 0};
+    bool shouldSaveSceneAsModalOpen = false;
 };
 
 class Editor {
     std::shared_ptr<Engine> m_Engine;
     std::unique_ptr<SceneManager> m_SceneManager;
+
+    std::unique_ptr<ShortcutManager> m_ShortcutManager;
 
     EditorSettings m_EditorSettings;
     EditorState m_State;
@@ -22,6 +26,8 @@ class Editor {
     EntityID m_SelectedEntity = NULL_ENTITY;
 
     void DrawCurrentSceneHierarchy();
+
+    void NewEmptyScene();
 
     void DrawScenePicker();
 
@@ -39,12 +45,15 @@ class Editor {
 
     void DrawAssetManager() const;
 
+    void DrawModals();
+
     void DrawUI();
 
 public:
     explicit Editor(const std::shared_ptr<Engine> &engine)
         : m_Engine(engine) {
         m_SceneManager = std::make_unique<SceneManager>(m_Engine);
+        m_ShortcutManager = std::make_unique<ShortcutManager>();
     }
 
     [[nodiscard]] EditorSettings GetEditorSettings() const {

@@ -3,6 +3,7 @@
 #include <string>
 
 #include "../scenes/scene.h"
+#include "yaml-cpp/node/node.h"
 
 using SceneVersionRaw = uint16_t;
 
@@ -14,8 +15,14 @@ class SceneSerializer {
 public:
     static std::unique_ptr<Scene> LoadScene(
         const std::string &scenePath,
-        const std::shared_ptr<AbstractRenderer> &renderer, const std::vector<SystemRegistrationFunction> &
-        systemRegistrations
+        const std::shared_ptr<AbstractRenderer> &renderer,
+        const std::vector<SystemRegistrationFunction> &systemRegistrations
+    );
+
+    static void SaveScene(
+        const std::string &scenePath,
+        const std::shared_ptr<Scene> &scene,
+        SceneVersion version = SceneVersion::V_0
     );
 };
 

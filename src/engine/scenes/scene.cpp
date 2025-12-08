@@ -16,6 +16,10 @@ std::string &Scene::GetPath() {
     return m_Path;
 }
 
+void Scene::SetPath(const std::string &path) {
+    m_Path = path;
+}
+
 void Scene::RegisterInternalSystems() {
     Signature renderableSignature;
     renderableSignature.set(ComponentTypeHelper<RenderableComponent>::ID);
@@ -39,10 +43,10 @@ void Scene::RegisterInternalSystems() {
 }
 
 void Scene::RegisterInternalComponents() const {
-    m_ComponentManager->RegisterComponent<InternalTagComponent>();
-    m_ComponentManager->RegisterComponent<TransformComponent>();
-    m_ComponentManager->RegisterComponent<VelocityComponent>();
-    m_ComponentManager->RegisterComponent<RenderableComponent>();
-    m_ComponentManager->RegisterComponent<CameraComponent>();
-    m_ComponentManager->RegisterComponent<ActiveCameraTagComponent>();
+    m_ComponentManager->RegisterComponent<InternalTagComponent>("InternalTagComponent");
+    m_ComponentManager->RegisterComponent<TransformComponent>("TransformComponent");
+    m_ComponentManager->RegisterComponent<VelocityComponent>("VelocityComponent");
+    m_ComponentManager->RegisterComponent<RenderableComponent>("RenderableComponent");
+    m_ComponentManager->RegisterComponent<CameraComponent>("CameraComponent");
+    m_ComponentManager->RegisterComponent<ActiveCameraTagComponent>("ActiveCameraTagComponent");
 }

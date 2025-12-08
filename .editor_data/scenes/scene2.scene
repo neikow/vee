@@ -1,57 +1,54 @@
-name: Apple Scene
 type: scene
-id: 1
 version: 0
+name: Apple Scene
 
 meshes:
   - id: 0
-    path: "../assets/models/apple.obj"
+    path: ../assets/models/apple.obj
   - id: 1
-    path: "../assets/models/viking_room.obj"
+    path: ../assets/models/viking_room.obj
 
 textures:
   - id: 0
-    path: "../assets/textures/apple.jpg"
+    path: ../assets/textures/apple.jpg
   - id: 1
-    path: "../assets/textures/viking_room.png"
+    path: ../assets/textures/viking_room.png
 
 entities:
-  - id: 0
+  - id: 1
     components:
-      - type: TransformComponent
-        position: [ 0, 0.15, 3.0 ]
-        rotation: [ 1, 0.50, 0, 0 ]
-        scale: [ 1, 1, 1 ]
       - type: CameraComponent
         projection: perspective
-        fov: 45.0
-        aspect_ratio: 0.0
+        fov: 45
+        aspect_ratio: 0
         near_plane: 0.01
         far_plane: 200
+      - type: TransformComponent
+        position: [0, 0.15, 3]
+        rotation: [0.8944273, 0.44721365, 0, 0]
+        scale: [1, 1, 1]
       - type: ActiveCameraTagComponent
-  - id: 1
-    # Apple
+  - id: 2
     components:
       - type: TransformComponent
-        position: [ 1, 0, 0 ]
-        rotation: [ 1, 0, 0, 0 ]
-        scale: [ 2, 2, 2 ]
+        position: [1, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [2, 2, 2]
       - type: VelocityComponent
-        linear: [ 0, 0, 0 ]
-        angular: [ 0, 0, 1.0 ]
+        linear: [0, 0, 0]
+        angular: [0, 0, 1]
       - type: RenderableComponent
         mesh_id: 0
         texture_id: 0
-  - id: 2
-    # Viking Room
+  - id: 3
     components:
       - type: TransformComponent
-        position: [ -1, 0, 0 ]
-        rotation: [ 1, 0, 0, 0 ]
-        scale: [ 1, 1, 1 ]
+        position: [-1, -1.1, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
       - type: VelocityComponent
-        linear: [ 0, 0, 0 ]
-        angular: [ 0, 0, 1.0 ]
+        linear: [0, 0, 0]
+        angular: [0, 0, 1]
       - type: RenderableComponent
         mesh_id: 1
         texture_id: 1

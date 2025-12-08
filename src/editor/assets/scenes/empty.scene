@@ -1,0 +1,12 @@
+type: scene
+version: 0
+name: New Scene
+
+meshes:
+  []
+
+textures:
+  []
+
+entities:
+  {}

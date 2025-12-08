@@ -10,6 +10,7 @@
 #include "../engine/entities/components_system/tags/editor_camera_tag_component.h"
 #include "../engine/entities/components_system/tags/internal_tag_component.h"
 #include "../engine/io/input_system.h"
+#include "../engine/utils/strings.h"
 #include "renderer/vulkan/vulkan_renderer_with_ui.h"
 #include "systems/editor_camera_system.h"
 
@@ -47,6 +48,12 @@ void Editor::DrawCurrentSceneHierarchy() {
     }
 }
 
+void Editor::NewEmptyScene() {
+    m_SelectedEntity = NULL_ENTITY;
+    m_SceneManager->NewEmptyScene();
+    CreateEditorInternalEntities();
+}
+
 void Editor::DrawScenePicker() {
     const float availWidth = ImGui::GetContentRegionAvail().x;
     const ImGuiStyle &style = ImGui::GetStyle();
@@ -74,7 +81,7 @@ void Editor::DrawScenePicker() {
 
     ImGui::SameLine(0.0f, spacing);
     if (ImGui::Button("+", ImVec2(buttonWidth, 0.0f))) {
-        m_SceneManager->NewEmptyScene();
+        NewEmptyScene();
     }
 }
 
@@ -294,6 +301,56 @@ void Editor::DrawAssetManager() const {
     }
 }
 
+void Editor::DrawModals() {
+    if (m_State.shouldSaveSceneAsModalOpen) {
+        ImGui::OpenPopup("Provide a Scene name", ImGuiWindowFlags_AlwaysAutoResize);
+        m_State.shouldSaveSceneAsModalOpen = false;
+    }
+
+    if (ImGui::BeginPopupModal("Provide a Scene name", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::SetItemDefaultFocus();
+
+        ImGui::Text("Scene Name:");
+        static char sceneNameBuffer[256] = "";
+        ImGui::InputText("##SceneNameInput", sceneNameBuffer, IM_ARRAYSIZE(sceneNameBuffer));
+
+        const auto sceneFileName = Utils::Strings::ToLower(
+            Utils::Strings::ReplaceAll(
+                Utils::Strings::TrimWhitespace(
+                    sceneNameBuffer
+                ),
+                " ",
+                "_"
+            )
+        );
+
+        ImGui::Text(
+            "%s.scene",
+            sceneFileName.c_str()
+        );
+        ImGui::Separator();
+
+
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::SameLine();
+
+        ImGui::BeginDisabled(sceneFileName.empty());
+        if (ImGui::Button("Save", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+
+            m_SceneManager->SaveScene(
+                "../.editor_data/scenes/" + sceneFileName + ".scene",
+                sceneNameBuffer
+            );
+        }
+        ImGui::EndDisabled();
+        ImGui::EndPopup();
+    }
+}
+
 void Editor::DrawUI() {
     ImGui::NewFrame();
     ImGui::DockSpaceOverViewport(
@@ -306,6 +363,8 @@ void Editor::DrawUI() {
     DrawAssetManager();
     DrawViewport();
 
+    DrawModals();
+
     ImGui::Render();
 }
 
@@ -313,6 +372,41 @@ void Editor::Run(const int width, const int height) {
     m_Engine->Initialize(width, height, "Editor", VK_MAKE_VERSION(1, 0, 0));
 
     auto lastTime = std::chrono::high_resolution_clock::now();
+
+    m_ShortcutManager->RegisterShortcut(
+        SHORTCUT_RELOAD,
+        {KEY_LEFT_CONTROL, KEY_R},
+        [this] {
+            ReloadCurrentSceneFromFile();
+        }
+    );
+    m_ShortcutManager->RegisterShortcut(
+        SHORTCUT_SAVE,
+        {KEY_SUPER, KEY_S},
+        [this] {
+            const auto scene = m_Engine->GetScene();
+
+            const auto scenePath = scene->GetPath();
+
+            if (scenePath.empty()) {
+                m_State.shouldSaveSceneAsModalOpen = true;
+                return;
+            }
+
+            m_SceneManager->SaveScene(
+                scenePath,
+                scene->GetName()
+            );
+        }
+    );
+    m_ShortcutManager->RegisterShortcut(
+        SHORTCUT_ADD_ENTITY_TO_SCENE,
+        {KEY_LEFT_CONTROL, KEY_SPACE},
+        [this] {
+            std::cout << "[INFO] Adding entity to scene via shortcut" << std::endl;
+            m_SelectedEntity = m_Engine->GetScene()->CreateEntity();
+        }
+    );
 
     while (!m_Engine->GetRenderer()->ShouldClose()) {
         glfwPollEvents();
@@ -328,6 +422,8 @@ void Editor::Run(const int width, const int height) {
         DrawUI();
 
         m_Engine->GetRenderer()->Draw();
+
+        m_ShortcutManager->HandleShortcuts();
 
         InputSystem::UpdateEndOfFrame();
     }

@@ -5,11 +5,15 @@
 #include <GLFW/glfw3.h>
 
 enum Key {
+    KEY_A,
     KEY_Z,
     KEY_Q,
     KEY_S,
     KEY_D,
+    KEY_R,
+    KEY_LEFT_CONTROL,
     KEY_SPACE,
+    KEY_SUPER,
 };
 
 enum MouseButton {

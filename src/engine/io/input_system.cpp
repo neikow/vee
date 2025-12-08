@@ -73,6 +73,21 @@ void InputSystem::KeyCallback(GLFWwindow */*window*/, const int key, int /*scanc
         case GLFW_KEY_D:
             mappedKey = KEY_D;
             break;
+        case GLFW_KEY_LEFT_CONTROL:
+            mappedKey = KEY_LEFT_CONTROL;
+            break;
+        case GLFW_KEY_SPACE:
+            mappedKey = KEY_SPACE;
+            break;
+        case GLFW_KEY_R:
+            mappedKey = KEY_R;
+            break;
+        case GLFW_KEY_LEFT_SUPER:
+            mappedKey = KEY_SUPER;
+            break;
+        case GLFW_KEY_A:
+            mappedKey = KEY_A;
+            break;
         default:
             return;
     }

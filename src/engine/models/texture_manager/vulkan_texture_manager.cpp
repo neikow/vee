@@ -16,12 +16,14 @@ namespace Vulkan {
             throw std::runtime_error("Failed to load texture image from: " + texturePath);
         }
 
-        return {
-            .pixels = pixels,
-            .width = texWidth,
-            .height = texHeight,
-            .imageSize = imageSize
-        };
+        TextureInfo textureInfo;
+        textureInfo.path = texturePath;
+        textureInfo.pixels = pixels;
+        textureInfo.width = texWidth;
+        textureInfo.height = texHeight;
+        textureInfo.imageSize = imageSize;
+
+        return textureInfo;
     }
 
     TextureId TextureManager::LoadTexture(const std::string &texturePath) {
@@ -136,5 +138,16 @@ namespace Vulkan {
         const auto renderer = dynamic_cast<Renderer *>(m_Renderer);
 
         return renderer->m_TextureSampler;
+    }
+
+    void TextureManager::DumpLoadedTextures(YAML::Emitter &out) const {
+        out << YAML::Key << "textures" << YAML::Value << YAML::BeginSeq;
+        for (const auto &[textureId, textureInfo]: m_TextureCatalog) {
+            out << YAML::BeginMap;
+            out << YAML::Key << "id" << YAML::Value << textureId;
+            out << YAML::Key << "path" << YAML::Value << textureInfo.path;
+            out << YAML::EndMap;
+        }
+        out << YAML::EndSeq;
     }
 }

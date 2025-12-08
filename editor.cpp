@@ -41,7 +41,7 @@ int main() {
         const auto &systemManager,
         const auto &componentManager
     ) {
-                componentManager->template RegisterComponent<EditorCameraTagComponent>();
+                componentManager->template RegisterComponent<EditorCameraTagComponent>("EditorCameraTagComponent");
 
                 Signature editorCameraSignature;
                 editorCameraSignature.set(ComponentTypeHelper<CameraComponent>::ID);

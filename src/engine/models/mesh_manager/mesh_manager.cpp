@@ -59,7 +59,7 @@ LoadModelResult MeshManager::LoadModelData(
     return result;
 }
 
-ModelId MeshManager::LoadMesh(const std::string &modelPath) {
+ModelId MeshManager::LoadMesh(const std::string &meshPath) {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -71,7 +71,7 @@ ModelId MeshManager::LoadMesh(const std::string &modelPath) {
             &materials,
             &warn,
             &err,
-            modelPath.c_str()
+            meshPath.c_str()
         )
     ) {
         throw std::runtime_error(err);
@@ -80,6 +80,7 @@ ModelId MeshManager::LoadMesh(const std::string &modelPath) {
     auto result = LoadModelData(attrib, shapes);
 
     MeshInfo meshInfo{};
+    meshInfo.path = meshPath;
     meshInfo.indexCount = result.indexCount;
     meshInfo.vertexOffset = m_CurrentVertexOffset;
     meshInfo.indexOffset = m_CurrentIndexOffset;
@@ -95,6 +96,17 @@ ModelId MeshManager::LoadMesh(const std::string &modelPath) {
     m_ModelIdToMeshIndex[result.modelId] = static_cast<uint32_t>(m_MeshInfos.size() - 1);
 
     return result.modelId;
+}
+
+void MeshManager::DumpLoadedMeshes(YAML::Emitter &out) const {
+    out << YAML::Key << "meshes" << YAML::Value << YAML::BeginSeq;
+    for (int i = 0; i < m_MeshInfos.size(); ++i) {
+        out << YAML::BeginMap;
+        out << YAML::Key << "id" << YAML::Value << i;
+        out << YAML::Key << "path" << YAML::Value << m_MeshInfos[i].path;
+        out << YAML::EndMap;
+    }
+    out << YAML::EndSeq;
 }
 
 void MeshManager::Reset() {

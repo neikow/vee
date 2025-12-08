@@ -13,6 +13,7 @@ class ComponentManager {
     std::shared_ptr<SystemManager> m_SystemManager;
     std::array<std::shared_ptr<IComponentArray>, MAX_COMPONENTS> m_ComponentArrays;
     std::unordered_map<const char *, ComponentTypeId> m_ComponentTypeMap;
+    std::unordered_map<ComponentTypeId, std::string> m_ComponentNameMap;
 
     template<typename T>
     std::shared_ptr<ComponentArray<T> > GetComponentArray() {
@@ -28,11 +29,12 @@ public:
     }
 
     template<typename T>
-    void RegisterComponent() {
+    void RegisterComponent(const std::string &componentName) {
         const char *typeName = typeid(T).name();
         ComponentTypeId typeID = ComponentTypeHelper<T>::ID;
         m_ComponentTypeMap.insert({typeName, typeID});
         m_ComponentArrays[typeID] = std::make_shared<ComponentArray<T> >();
+        m_ComponentNameMap.insert({typeID, componentName});
     }
 
     template<typename T>
@@ -85,6 +87,10 @@ public:
         const auto componentArray = std::static_pointer_cast<ComponentArray<T> >(m_ComponentArrays[typeID]);
         return componentArray->HasData(entity);
     }
+
+    std::string GetComponentTypeName(const ComponentTypeId typeId) {
+        return m_ComponentNameMap.at(typeId);
+    };
 };
 
 

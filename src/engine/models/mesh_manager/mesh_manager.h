@@ -4,11 +4,13 @@
 #include "../../utils/vectors.h"
 #include "vector"
 #include "tiny_obj_loader.h"
+#include "yaml-cpp/emitter.h"
 
 class AbstractRenderer;
 using ModelId = uint32_t;
 
 struct MeshInfo {
+    std::string path;
     uint32_t indexCount;
     uint32_t vertexOffset;
     uint32_t indexOffset;
@@ -42,17 +44,19 @@ public:
 
     [[nodiscard]] std::vector<Vertex> GetMeshVerticesArray() const {
         return Utils::Vectors::FlattenCopy(m_Vertices);
-    };
+    }
 
     [[nodiscard]] std::vector<uint32_t> GetMeshIndicesArray() const {
         return Utils::Vectors::FlattenCopy(m_Indices);
-    };
+    }
 
     [[nodiscard]] MeshInfo GetMeshInfo(const ModelId modelId) const {
         return m_MeshInfos[m_ModelIdToMeshIndex.at(modelId)];
-    };
+    }
 
-    ModelId LoadMesh(const std::string &modelPath);
+    ModelId LoadMesh(const std::string &meshPath);
+
+    void DumpLoadedMeshes(YAML::Emitter &out) const;
 
     void Reset();
 };

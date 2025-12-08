@@ -1,5 +1,7 @@
 #include "scene_serializer.h"
 
+#include <fstream>
+
 #include "../engine.h"
 #include "../entities/components_system/components/camera_component.h"
 #include "../entities/components_system/components/transform_component.h"
@@ -8,6 +10,8 @@
 #include "../entities/components_system/components/velocity_component.h"
 #include "../entities/components_system/tags/active_camera_tag_component.h"
 #include "yaml-cpp/yaml.h"
+
+struct InternalTagComponent;
 
 void operator>>(const YAML::Node &node, glm::vec3 &v) {
     v.x = node[0].as<float>();
@@ -193,4 +197,122 @@ std::unique_ptr<Scene> SceneSerializer::LoadScene(
 
 
     return scene;
+}
+
+void operator<<(YAML::Emitter &out, const glm::vec3 &v) {
+    out << YAML::Flow << YAML::BeginSeq << v.x << v.y << v.z << YAML::EndSeq;
+}
+
+void operator<<(YAML::Emitter &out, const glm::quat &q) {
+    out << YAML::Flow << YAML::BeginSeq << q.w << q.x << q.y << q.z << YAML::EndSeq;
+}
+
+void operator<<(YAML::Emitter &out, const TransformComponent &transform) {
+    out << YAML::Key << "position" << YAML::Value << transform.position;
+    out << YAML::Key << "rotation" << YAML::Value << transform.rotation;
+    out << YAML::Key << "scale" << YAML::Value << transform.scale;
+}
+
+void operator<<(YAML::Emitter &out, const CameraComponent &camera) {
+    out << YAML::Key << "projection" << YAML::Value
+            << (camera.projection == PERSPECTIVE ? "perspective" : "orthographic");
+    out << YAML::Key << "fov" << YAML::Value << camera.fieldOfView;
+    out << YAML::Key << "aspect_ratio" << YAML::Value << camera.aspectRatio;
+    out << YAML::Key << "near_plane" << YAML::Value << camera.nearPlane;
+    out << YAML::Key << "far_plane" << YAML::Value << camera.farPlane;
+}
+
+void operator<<(YAML::Emitter &out, const VelocityComponent &velocity) {
+    out << YAML::Key << "linear" << YAML::Value << velocity.linearVelocity;
+    out << YAML::Key << "angular" << YAML::Value << velocity.angularVelocity;
+}
+
+void operator<<(YAML::Emitter &out, const RenderableComponent &renderable) {
+    out << YAML::Key << "mesh_id" << YAML::Value << renderable.meshId;
+    out << YAML::Key << "texture_id" << YAML::Value << renderable.textureId;
+}
+
+void SerializeSceneV0(
+    YAML::Emitter &out,
+    const std::shared_ptr<Scene> &scene
+) {
+    out << YAML::Newline;
+    out << YAML::Newline;
+    scene->GetRenderer()->GetMeshManager()->DumpLoadedMeshes(out);
+    out << YAML::Newline;
+    out << YAML::Newline;
+    scene->GetRenderer()->GetTextureManager()->DumpLoadedTextures(out);
+    out << YAML::Newline;
+    out << YAML::Newline;
+
+    out << YAML::Key << "entities" << YAML::Value << YAML::BeginSeq;
+    const auto entityManager = scene->GetEntityManager();
+    const auto componentManager = scene->GetComponentManager();
+
+    for (auto &[entity]: entityManager->GetAllEntities()) {
+        if (componentManager->HasComponent<InternalTagComponent>(entity)) {
+            // Skip internal entities
+            continue;
+        }
+
+        out << YAML::BeginMap;
+        out << YAML::Key << "id" << YAML::Value << entity;
+
+        out << YAML::Key << "components" << YAML::Value << YAML::BeginSeq;
+
+        const auto componentTypes = componentManager->GetEntityComponents(entity);
+        for (const auto &componentType: componentTypes) {
+            out << YAML::BeginMap;
+            const auto componentTypeName = componentManager->GetComponentTypeName(componentType);
+            out << YAML::Key << "type" << YAML::Value << componentTypeName;
+
+
+            if (componentType == ComponentTypeHelper<TransformComponent>::ID) {
+                out << componentManager->GetComponent<TransformComponent>(entity);
+            } else if (componentType == ComponentTypeHelper<CameraComponent>::ID) {
+                out << componentManager->GetComponent<CameraComponent>(entity);
+            } else if (componentType == ComponentTypeHelper<VelocityComponent>::ID) {
+                out << componentManager->GetComponent<VelocityComponent>(entity);
+            } else if (componentType == ComponentTypeHelper<RenderableComponent>::ID) {
+                out << componentManager->GetComponent<RenderableComponent>(entity);
+            } else if (componentType == ComponentTypeHelper<ActiveCameraTagComponent>::ID) {
+                // Tag component, no data to serialize
+            } else {
+                throw std::runtime_error("Unknown component type during serialization: " + componentTypeName);
+            }
+            out << YAML::EndMap;
+        }
+        out << YAML::EndSeq;
+        out << YAML::EndMap;
+    }
+}
+
+void SceneSerializer::SaveScene(
+    const std::string &scenePath,
+    const std::shared_ptr<Scene> &scene,
+    SceneVersion version
+) {
+    YAML::Emitter out;
+    out << YAML::BeginMap;
+    out << YAML::Key << "type" << YAML::Value << "scene";
+    out << YAML::Key << "version" << YAML::Value << static_cast<SceneVersionRaw>(version);
+    out << YAML::Key << "name" << YAML::Value << scene->GetName();
+
+    switch (version) {
+        case SceneVersion::V_0:
+            SerializeSceneV0(out, scene);
+            break;
+        default:
+            throw std::runtime_error("Invalid scene version");
+    }
+
+    out << YAML::EndMap;
+
+    std::ofstream fout(scenePath);
+
+    if (!fout.is_open()) {
+        throw std::runtime_error("Failed to open scene file for writing: " + scenePath);
+    }
+
+    fout << out.c_str();
 }

@@ -114,7 +114,12 @@ void DeserializeComponentV0(
 
 void DeserializeEntityV0(
     const YAML::Node &entityNode, const std::unique_ptr<Scene> &scenePtr) {
-    const auto entityId = scenePtr->CreateEntity();
+    std::string entityName;
+    if (entityNode["name"]) {
+        entityName = entityNode["name"].as<std::string>();
+    }
+
+    const auto entityId = scenePtr->CreateEntity(entityName);
     const auto components = entityNode["components"];
     if (!components) {
         throw std::runtime_error("Invalid entity node");
@@ -249,7 +254,7 @@ void SerializeSceneV0(
     const auto entityManager = scene->GetEntityManager();
     const auto componentManager = scene->GetComponentManager();
 
-    for (auto &[entity]: entityManager->GetAllEntities()) {
+    for (auto &[entity, name]: entityManager->GetAllEntities()) {
         if (componentManager->HasComponent<InternalTagComponent>(entity)) {
             // Skip internal entities
             continue;
@@ -257,13 +262,14 @@ void SerializeSceneV0(
 
         out << YAML::BeginMap;
         out << YAML::Key << "id" << YAML::Value << entity;
+        out << YAML::Key << "name" << YAML::Value << name;
 
         out << YAML::Key << "components" << YAML::Value << YAML::BeginSeq;
 
         const auto componentTypes = componentManager->GetEntityComponents(entity);
         for (const auto &componentType: componentTypes) {
             out << YAML::BeginMap;
-            const auto componentTypeName = componentManager->GetComponentTypeName(componentType);
+            const auto componentTypeName = componentManager->GetComponentName(componentType);
             out << YAML::Key << "type" << YAML::Value << componentTypeName;
 
 

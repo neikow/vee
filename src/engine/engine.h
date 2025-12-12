@@ -51,6 +51,10 @@ public:
         m_ActiveCameraEntityId = entityId;
     }
 
+    [[nodiscard]] EntityID GetActiveCameraEntityId() const {
+        return m_ActiveCameraEntityId;
+    }
+
     void Pause();
 
     void Resume();

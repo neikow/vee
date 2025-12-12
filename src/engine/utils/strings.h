@@ -17,6 +17,8 @@ namespace Utils::Strings {
     std::string ToLower(
         const std::string &input
     );
+
+    std::string TruncateString(const std::string &name, int i);
 }
 
 #endif //VEE_STRINGS_H

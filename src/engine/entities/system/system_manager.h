@@ -31,7 +31,7 @@ public:
         const EntityID entity,
         const Signature entitySignature
     ) {
-        for (auto const &pair: m_Systems) {
+        for (const auto &pair: m_Systems) {
             const std::type_index &typeId = pair.first;
             auto &system = pair.second;
 
@@ -54,6 +54,10 @@ public:
             system->Update(deltaTime);
         }
     }
+
+    void RemoveEntity(const EntityID entity) {
+        return EntitySignatureChanged(entity, 0);
+    };
 };
 
 

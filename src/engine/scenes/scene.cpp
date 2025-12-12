@@ -20,6 +20,16 @@ void Scene::SetPath(const std::string &path) {
     m_Path = path;
 }
 
+bool Scene::DestroyEntity(const EntityID entity) const {
+    if (m_ComponentManager->HasComponent<InternalTagComponent>(entity)) {
+        return false;
+    }
+    m_EntityManager->RemoveEntity(entity);
+    m_ComponentManager->RemoveEntity(entity);
+    m_SystemManager->RemoveEntity(entity);
+    return true;
+}
+
 void Scene::RegisterInternalSystems() {
     Signature renderableSignature;
     renderableSignature.set(ComponentTypeHelper<RenderableComponent>::ID);

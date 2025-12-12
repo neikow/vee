@@ -34,8 +34,8 @@ void Editor::DrawCurrentSceneHierarchy() {
         const bool nodeOpen = ImGui::TreeNodeEx(
             (void *) (uintptr_t) entity.id,
             nodeFlags,
-            isInternal ? "Entity %d (Intenal)" : "Entity %d",
-            entity.id
+            isInternal ? "%s (Intenal)" : "%s",
+            Utils::Strings::TruncateString(entity.name, 20).c_str()
         );
 
         if (ImGui::IsItemClicked()) {
@@ -99,6 +99,25 @@ void Editor::DrawSceneHierarchy() {
 void Editor::DrawEntityInspector() const {
     const auto componentManager = m_Engine->GetScene()->GetComponentManager();
     const auto entityComponents = componentManager->GetEntityComponents(m_SelectedEntity);
+    const auto isInternal = componentManager->HasComponent<InternalTagComponent>(m_SelectedEntity);
+
+    const std::string entityNameString = m_Engine->GetScene()->GetEntityManager()->GetEntityName(m_SelectedEntity);
+    char entityName[256];
+    std::strncpy(entityName, entityNameString.c_str(), sizeof(entityName));
+    ImGui::InputText(
+        "Name",
+        entityName,
+        IM_ARRAYSIZE(entityName)
+    );
+    if (const auto newName = std::string(entityName); newName != entityNameString) {
+        m_Engine->GetScene()->GetEntityManager()->RenameEntity(
+            m_SelectedEntity,
+            newName
+        );
+    }
+
+    ImGui::Separator();
+
     for (const auto &componentTypeID: entityComponents) {
         constexpr ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen;
 
@@ -203,13 +222,45 @@ void Editor::DrawEntityInspector() const {
             }
         }
     }
+
+    if (!isInternal) {
+        ImGui::Separator();
+
+        const auto preview_value = "Add Component";
+
+        if (ImGui::BeginCombo("##AddComponent", preview_value)) {
+            for (const auto &componentId: componentManager->GetRegisteredComponents()) {
+                if (componentId == ComponentTypeHelper<InternalTagComponent>::ID) {
+                    continue; // Skip internal components
+                }
+
+                const bool isAlreadyPresent = componentManager->HasComponent(componentId, m_SelectedEntity);
+                const std::string componentName = componentManager->GetComponentName(componentId);
+
+                ImGuiSelectableFlags flags = 0;
+                if (isAlreadyPresent) {
+                    flags |= ImGuiSelectableFlags_Disabled;
+                }
+
+                if (ImGui::Selectable(componentName.c_str(), false, flags)) {
+                    componentManager->AddDefaultComponent(componentId, m_SelectedEntity);
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+    }
+}
+
+void Editor::DrawSceneInspector() {
+    ImGui::Text("DEBUG: Current camera entityID : %d", m_Engine->GetActiveCameraEntityId());
 }
 
 void Editor::DrawInspector() {
     ImGui::Begin("Inspector");
 
     if (m_SelectedEntity == NULL_ENTITY) {
-        ImGui::Text("No entity selected.");
+        DrawSceneInspector();
         ImGui::End();
         return;
     }
@@ -403,8 +454,20 @@ void Editor::Run(const int width, const int height) {
         SHORTCUT_ADD_ENTITY_TO_SCENE,
         {KEY_LEFT_CONTROL, KEY_SPACE},
         [this] {
-            std::cout << "[INFO] Adding entity to scene via shortcut" << std::endl;
-            m_SelectedEntity = m_Engine->GetScene()->CreateEntity();
+            m_SelectedEntity = m_Engine->GetScene()->CreateEntity("Unnamed Entity");
+        }
+    );
+    m_ShortcutManager->RegisterShortcut(
+        SHORTCUT_DELETE,
+        {KEY_LEFT_CONTROL, KEY_DELETE},
+        [this] {
+            if (m_SelectedEntity == NULL_ENTITY) return;
+
+            const auto scene = m_Engine->GetScene();
+
+            if (scene->DestroyEntity(m_SelectedEntity)) {
+                m_SelectedEntity = NULL_ENTITY;
+            }
         }
     );
 
@@ -431,8 +494,8 @@ void Editor::Run(const int width, const int height) {
     m_Engine->Shutdown();
 }
 
-void Editor::CreateEditorCamera(const std::shared_ptr<Scene> &scene) const {
-    const auto editorCamera = scene->CreateEntity();
+void Editor::CreateEditorCamera(const std::shared_ptr<Scene> &scene) {
+    const auto editorCamera = scene->CreateEntity("Editor Camera");
     const auto componentManager = scene->GetComponentManager();
     const auto systemManager = scene->GetSystemManager();
 
@@ -464,9 +527,11 @@ void Editor::CreateEditorCamera(const std::shared_ptr<Scene> &scene) const {
         EditorCameraTagComponent{}
     );
 
+    m_EditorCameraSignature = m_Engine->GetScene()->GetEntityManager()->GetSignature(editorCamera);
+
     m_Engine->SetActiveCameraEntityId(editorCamera);
 }
 
-void Editor::CreateEditorInternalEntities() const {
+void Editor::CreateEditorInternalEntities() {
     CreateEditorCamera(m_Engine->GetScene());
 }

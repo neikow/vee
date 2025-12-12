@@ -65,8 +65,8 @@ public:
         return m_DisplaySystem;
     }
 
-    [[nodiscard]] EntityID CreateEntity() const {
-        return m_EntityManager->CreateEntity();
+    [[nodiscard]] EntityID CreateEntity(const std::string &name) const {
+        return m_EntityManager->CreateEntity(name);
     }
 
     [[nodiscard]] std::shared_ptr<AbstractRenderer> GetRenderer() const {
@@ -76,6 +76,12 @@ public:
     std::string &GetPath();
 
     void SetPath(const std::string &path);
+
+    /**
+     * Removes an entity from the scene if it is not tagged as internal.
+     * Returns true if the entity was successfully destroyed, false otherwise.
+     */
+    [[nodiscard]] bool DestroyEntity(EntityID entity) const;
 
 private:
     void RegisterInternalSystems();

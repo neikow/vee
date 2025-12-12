@@ -20,6 +20,8 @@ class Editor {
 
     std::unique_ptr<ShortcutManager> m_ShortcutManager;
 
+    Signature m_EditorCameraSignature;
+
     EditorSettings m_EditorSettings;
     EditorState m_State;
 
@@ -34,6 +36,8 @@ class Editor {
     void DrawSceneHierarchy();
 
     void DrawEntityInspector() const;
+
+    void DrawSceneInspector();
 
     void DrawInspector();
 
@@ -70,11 +74,11 @@ public:
 
     void Run(int width, int height);
 
-    void CreateEditorCamera(const std::shared_ptr<Scene> &scene) const;
+    void CreateEditorCamera(const std::shared_ptr<Scene> &scene);
 
-    void CreateEditorInternalEntities() const;
+    void CreateEditorInternalEntities();
 
-    void LoadScene(const std::string &path) const {
+    void LoadScene(const std::string &path) {
         m_Engine->Pause();
         m_SceneManager->LoadScene(path);
         CreateEditorInternalEntities();

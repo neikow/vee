@@ -9,6 +9,7 @@ enum Shortcut {
     SHORTCUT_SAVE,
     SHORTCUT_RELOAD,
     SHORTCUT_ADD_ENTITY_TO_SCENE,
+    SHORTCUT_DELETE,
 };
 
 class ShortcutManager {

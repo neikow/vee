@@ -14,6 +14,7 @@ enum Key {
     KEY_LEFT_CONTROL,
     KEY_SPACE,
     KEY_SUPER,
+    KEY_DELETE,
 };
 
 enum MouseButton {

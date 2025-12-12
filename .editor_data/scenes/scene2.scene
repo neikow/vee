@@ -16,6 +16,7 @@ textures:
 
 entities:
   - id: 1
+    name: Scene Camera
     components:
       - type: CameraComponent
         projection: perspective
@@ -25,10 +26,11 @@ entities:
         far_plane: 200
       - type: TransformComponent
         position: [0, 0.15, 3]
-        rotation: [0.8944273, 0.44721365, 0, 0]
+        rotation: [0.8944272, 0.4472136, 0, 0]
         scale: [1, 1, 1]
       - type: ActiveCameraTagComponent
   - id: 2
+    name: Apple
     components:
       - type: TransformComponent
         position: [1, 0, 0]
@@ -41,9 +43,10 @@ entities:
         mesh_id: 0
         texture_id: 0
   - id: 3
+    name: Viking Room
     components:
       - type: TransformComponent
-        position: [-1, -1.1, 0]
+        position: [-1, 0.5, 0]
         rotation: [1, 0, 0, 0]
         scale: [1, 1, 1]
       - type: VelocityComponent

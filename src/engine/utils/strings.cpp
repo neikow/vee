@@ -34,4 +34,11 @@ namespace Utils::Strings {
         }
         return result;
     }
+
+    std::string TruncateString(const std::string &name, const int i) {
+        if (static_cast<int>(name.length()) <= i) {
+            return name;
+        }
+        return name.substr(0, i) + "...";
+    }
 }

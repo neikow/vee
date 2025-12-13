@@ -30,7 +30,7 @@ int main() {
 
     const auto g_Engine = std::make_shared<Engine>(g_Renderer);
 
-    const auto g_Editor = std::make_shared<Editor>(g_Engine);
+    const auto g_Editor = std::make_shared<VeeEditor>(g_Engine);
 
     bool hasError = false;
     try {

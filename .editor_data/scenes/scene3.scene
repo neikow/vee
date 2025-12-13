@@ -1,0 +1,70 @@
+type: scene
+version: 0
+name: Solar System
+
+meshes:
+  - id: 0
+    path: ../assets/models/sphere.obj
+
+textures:
+  - id: 0
+    path: ../assets/textures/apple.jpg
+
+entities:
+  - id: 1
+    name: Scene Camera
+    components:
+      - type: CameraComponent
+        projection: perspective
+        fov: 45
+        aspect_ratio: 0
+        near_plane: 0.01
+        far_plane: 200
+      - type: LocalTransformComponent
+        position: [0, 5, 15]
+        rotation: [0.8944273, 0.44721365, 0, 0]
+        scale: [1, 1, 1]
+      - type: ActiveCameraTagComponent
+  - id: 2
+    name: Sun
+    components:
+      - type: LocalTransformComponent
+        position: [0, 0, 0]
+        rotation: [0.93576396, 4.5363713e-08, -0.352627, -4.7984198e-08]
+        scale: [3, 3, 3]
+      - type: VelocityComponent
+        linear: [0, 0, 0]
+        angular: [0, 0.1, 0]
+      - type: RenderableComponent
+        mesh_id: 0
+        texture_id: 0
+  - id: 3
+    name: Earth
+    components:
+      - type: LocalTransformComponent
+        position: [10, 0, 0]
+        rotation: [0.22869448, 0, 0.9734983, 0]
+        scale: [1, 1, 1]
+      - type: ParentComponent
+        parent_id: 2
+      - type: VelocityComponent
+        linear: [0, 0, 0]
+        angular: [0, 0.5, 0]
+      - type: RenderableComponent
+        mesh_id: 0
+        texture_id: 0
+  - id: 4
+    name: Moon
+    components:
+      - type: LocalTransformComponent
+        position: [2, 0, 0]
+        rotation: [-0.8953963, 0, 0.44527006, 0]
+        scale: [0.27, 0.27, 0.27]
+      - type: ParentComponent
+        parent_id: 3
+      - type: VelocityComponent
+        linear: [0, 0, 0]
+        angular: [0, 1, 0]
+      - type: RenderableComponent
+        mesh_id: 0
+        texture_id: 0

@@ -4,13 +4,16 @@
 #include "imgui_internal.h"
 #include "../engine/entities/components_system/components/renderable_component.h"
 #include "../engine/entities/components_system/components/camera_component.h"
-#include "../engine/entities/components_system/components/transform_component.h"
+#include "../engine/entities/components_system/components/children_component.h"
+#include "../engine/entities/components_system/components/local_to_world_component.h"
+#include "../engine/entities/components_system/components/local_transform_component.h"
 #include "../engine/entities/components_system/components/velocity_component.h"
 #include "../engine/entities/components_system/tags/active_camera_tag_component.h"
 #include "../engine/entities/components_system/tags/editor_camera_tag_component.h"
 #include "../engine/entities/components_system/tags/internal_tag_component.h"
 #include "../engine/io/input_system.h"
 #include "../engine/utils/strings.h"
+#include "../engine/utils/entities/hierarchy.h"
 #include "renderer/vulkan/vulkan_renderer_with_ui.h"
 #include "systems/editor_camera_system.h"
 #include "ui/editor_console.h"
@@ -24,7 +27,7 @@ void Editor::DrawCurrentSceneHierarchy() {
         const bool isInternal = m_Engine->GetScene()->GetComponentManager()->HasComponent<
             InternalTagComponent>(entity.id);
 
-        if (!m_EditorSettings.displayInternalEntities && isInternal) {
+        if (!m_EditorSettings.displayDebugInfo && isInternal) {
             continue;
         }
 
@@ -99,10 +102,11 @@ void Editor::DrawSceneHierarchy() {
 
 void Editor::DrawEntityInspector() const {
     const auto componentManager = m_Engine->GetScene()->GetComponentManager();
+    const auto entityManager = m_Engine->GetScene()->GetEntityManager();
     const auto entityComponents = componentManager->GetEntityComponents(m_SelectedEntity);
     const auto isInternal = componentManager->HasComponent<InternalTagComponent>(m_SelectedEntity);
 
-    const std::string entityNameString = m_Engine->GetScene()->GetEntityManager()->GetEntityName(m_SelectedEntity);
+    const std::string entityNameString = entityManager->GetEntityName(m_SelectedEntity);
     char entityName[256];
     std::strncpy(entityName, entityNameString.c_str(), sizeof(entityName));
     ImGui::InputText(
@@ -111,7 +115,7 @@ void Editor::DrawEntityInspector() const {
         IM_ARRAYSIZE(entityName)
     );
     if (const auto newName = std::string(entityName); newName != entityNameString) {
-        m_Engine->GetScene()->GetEntityManager()->RenameEntity(
+        entityManager->RenameEntity(
             m_SelectedEntity,
             newName
         );
@@ -122,9 +126,9 @@ void Editor::DrawEntityInspector() const {
     for (const auto &componentTypeID: entityComponents) {
         constexpr ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen;
 
-        if (componentTypeID == ComponentTypeHelper<TransformComponent>::ID) {
+        if (componentTypeID == ComponentTypeHelper<LocalTransformComponent>::ID) {
             if (ImGui::CollapsingHeader("Transform", flags)) {
-                auto &transform = componentManager->GetComponent<TransformComponent>(m_SelectedEntity);
+                auto &transform = componentManager->GetComponent<LocalTransformComponent>(m_SelectedEntity);
 
                 ImGui::DragFloat3(
                     "Position",
@@ -221,6 +225,103 @@ void Editor::DrawEntityInspector() const {
                     "%u"
                 );
             }
+        } else if (componentTypeID == ComponentTypeHelper<LocalToWorldComponent>::ID) {
+            if (m_EditorSettings.displayDebugInfo) {
+                if (ImGui::CollapsingHeader("World Matrix (Debug)", flags)) {
+                    auto &l2w = componentManager->GetComponent<LocalToWorldComponent>(m_SelectedEntity);
+
+                    ImGui::Text("Matrix isDirty: %s", l2w.isDirty ? "True" : "False");
+                    ImGui::Separator();
+
+                    for (int i = 0; i < 4; ++i) {
+                        ImGui::Text(
+                            "C%d: %.3f | %.3f | %.3f | %.3f", i,
+                            l2w.localToWorldMatrix[i].x,
+                            l2w.localToWorldMatrix[i].y,
+                            l2w.localToWorldMatrix[i].z,
+                            l2w.localToWorldMatrix[i].w
+                        );
+                    }
+                }
+            }
+        } else if (componentTypeID == ComponentTypeHelper<ParentComponent>::ID) {
+            if (ImGui::CollapsingHeader("Hierarchy Parent", flags)) {
+                auto &parentComp = componentManager->GetComponent<ParentComponent>(m_SelectedEntity);
+                EntityID currentParentId = parentComp.parent;
+                std::string currentParentName = (currentParentId == NULL_ENTITY)
+                                                    ? "None"
+                                                    : entityManager->GetEntityName(currentParentId);
+
+                if (ImGui::BeginCombo("Parent", currentParentName.c_str())) {
+                    bool is_none_selected = currentParentId == NULL_ENTITY;
+                    if (ImGui::Selectable("None", &is_none_selected)) {
+                        Utils::Entities::Hierarchy::SetParent(m_SelectedEntity, NULL_ENTITY, componentManager);
+                    }
+
+                    // Option 2: List all other entities
+                    // This is an expensive operation; a better solution is to cache entity lists.
+                    for (const auto &entityData: entityManager->GetAllEntities()) {
+                        EntityID entityId = entityData.id;
+
+                        if (entityId == m_SelectedEntity || entityId == NULL_ENTITY) {
+                            continue;
+                        }
+
+                        bool is_selected = (entityId == currentParentId);
+
+                        if (ImGui::Selectable(entityData.name.c_str(), &is_selected)) {
+                            Utils::Entities::Hierarchy::SetParent(m_SelectedEntity, entityId, componentManager);
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+            }
+        } else if (componentTypeID == ComponentTypeHelper<ChildrenComponent>::ID) {
+            if (ImGui::CollapsingHeader("Hierarchy Children", flags)) {
+                auto &childrenComp = componentManager->GetComponent<ChildrenComponent>(m_SelectedEntity);
+
+                ImGui::Text("Children Count: %zu", childrenComp.children.size());
+                ImGui::Separator();
+
+                int childIndex = 0;
+                for (EntityID childId: childrenComp.children) {
+                    std::string childName = entityManager->GetEntityName(childId);
+                    ImGui::Text("%d: %s", childIndex++, childName.c_str());
+                    ImGui::SameLine();
+
+                    ImGui::PushID(childId);
+                    if (ImGui::SmallButton("Detach")) {
+                        Utils::Entities::Hierarchy::SetParent(childId, NULL_ENTITY, componentManager);
+                    }
+                    ImGui::PopID();
+                }
+                ImGui::Separator();
+
+                const std::string add_child_preview = "Add Existing Entity as Child";
+
+                if (ImGui::BeginCombo("##AddChildCombo", add_child_preview.c_str())) {
+                    for (const auto &entityData: entityManager->GetAllEntities()) {
+                        EntityID entityId = entityData.id;
+
+                        if (
+                            entityId == m_SelectedEntity
+                            || entityId == NULL_ENTITY
+                            || childrenComp.children.contains(entityId)
+                        ) {
+                            continue;
+                        }
+
+                        if (ImGui::Selectable(entityData.name.c_str())) {
+                            Utils::Entities::Hierarchy::AddChild(
+                                m_SelectedEntity,
+                                entityId,
+                                componentManager
+                            );
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+            }
         }
     }
 
@@ -245,6 +346,9 @@ void Editor::DrawEntityInspector() const {
 
                 if (ImGui::Selectable(componentName.c_str(), false, flags)) {
                     componentManager->AddDefaultComponent(componentId, m_SelectedEntity);
+                    if (componentId == ComponentTypeHelper<LocalTransformComponent>::ID) {
+                        componentManager->AddComponent<LocalToWorldComponent>(m_SelectedEntity, {});
+                    }
                 }
             }
 
@@ -506,9 +610,9 @@ void Editor::CreateEditorCamera(const std::shared_ptr<Scene> &scene) {
         InternalTagComponent{}
     );
 
-    componentManager->AddComponent<TransformComponent>(
+    componentManager->AddComponent<LocalTransformComponent>(
         editorCamera,
-        TransformComponent{
+        LocalTransformComponent{
             .position = glm::vec3(0.0f, 0.15f, 3.0f),
             .rotation = glm::quat(0.784934, 0.392467, 0.214406, 0.428811),
             .scale = glm::vec3(1.0f)

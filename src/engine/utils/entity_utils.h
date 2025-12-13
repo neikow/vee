@@ -9,6 +9,7 @@
 using namespace Entities;
 
 namespace Utils::Entities {
+    // TODO: Move me to utils/entities/iteration.h
     struct EntityMatchIterator {
         using iterator_category = std::forward_iterator_tag;
         using value_type = EntityID;

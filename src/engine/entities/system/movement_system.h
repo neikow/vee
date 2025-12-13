@@ -2,8 +2,9 @@
 #define GAME_ENGINE_MOVEMENT_SYSTEM_H
 
 #include "system.h"
+#include "../../logging/logger.h"
 #include "../components_system/component_manager.h"
-#include "../components_system/components/transform_component.h"
+#include "../components_system/components/local_transform_component.h"
 #include "../components_system/components/velocity_component.h"
 
 
@@ -15,7 +16,7 @@ public:
 
     void Update(const float dt) override {
         for (const auto entity: m_Entities) {
-            auto &transform = m_ComponentManager->GetComponent<TransformComponent>(entity);
+            auto &transform = m_ComponentManager->GetComponent<LocalTransformComponent>(entity);
             const auto &velocity = m_ComponentManager->GetComponent<VelocityComponent>(entity);
 
             transform.position += velocity.linearVelocity * dt;

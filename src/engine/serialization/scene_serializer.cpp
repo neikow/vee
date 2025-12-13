@@ -4,8 +4,9 @@
 
 #include "../engine.h"
 #include "../entities/components_system/components/camera_component.h"
-#include "../entities/components_system/components/transform_component.h"
+#include "../entities/components_system/components/local_transform_component.h"
 #include "../entities/components_system/components/camera_component.h"
+#include "../entities/components_system/components/local_to_world_component.h"
 #include "../entities/components_system/components/renderable_component.h"
 #include "../entities/components_system/components/velocity_component.h"
 #include "../entities/components_system/tags/active_camera_tag_component.h"
@@ -30,7 +31,7 @@ void operator>>(const YAML::Node &node, glm::quat &q) {
     );
 }
 
-void operator>>(const YAML::Node &node, TransformComponent &c) {
+void operator>>(const YAML::Node &node, LocalTransformComponent &c) {
     node["position"] >> c.position;
     node["rotation"] >> c.rotation;
     node["scale"] >> c.scale;
@@ -89,9 +90,10 @@ void DeserializeComponentV0(
     const auto componentManager = scenePtr->GetComponentManager();
 
     if (typeStr == "TransformComponent") {
-        TransformComponent transform{};
+        LocalTransformComponent transform{};
         componentNode >> transform;
-        componentManager->AddComponent<TransformComponent>(entityId, transform);
+        componentManager->AddComponent<LocalTransformComponent>(entityId, transform);
+        componentManager->AddComponent<LocalToWorldComponent>(entityId, {});
     } else if (typeStr == "CameraComponent") {
         CameraComponent camera{};
         componentNode >> camera;
@@ -212,7 +214,7 @@ void operator<<(YAML::Emitter &out, const glm::quat &q) {
     out << YAML::Flow << YAML::BeginSeq << q.w << q.x << q.y << q.z << YAML::EndSeq;
 }
 
-void operator<<(YAML::Emitter &out, const TransformComponent &transform) {
+void operator<<(YAML::Emitter &out, const LocalTransformComponent &transform) {
     out << YAML::Key << "position" << YAML::Value << transform.position;
     out << YAML::Key << "rotation" << YAML::Value << transform.rotation;
     out << YAML::Key << "scale" << YAML::Value << transform.scale;
@@ -273,8 +275,8 @@ void SerializeSceneV0(
             out << YAML::Key << "type" << YAML::Value << componentTypeName;
 
 
-            if (componentType == ComponentTypeHelper<TransformComponent>::ID) {
-                out << componentManager->GetComponent<TransformComponent>(entity);
+            if (componentType == ComponentTypeHelper<LocalTransformComponent>::ID) {
+                out << componentManager->GetComponent<LocalTransformComponent>(entity);
             } else if (componentType == ComponentTypeHelper<CameraComponent>::ID) {
                 out << componentManager->GetComponent<CameraComponent>(entity);
             } else if (componentType == ComponentTypeHelper<VelocityComponent>::ID) {

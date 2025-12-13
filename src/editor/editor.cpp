@@ -13,6 +13,7 @@
 #include "../engine/utils/strings.h"
 #include "renderer/vulkan/vulkan_renderer_with_ui.h"
 #include "systems/editor_camera_system.h"
+#include "ui/editor_console.h"
 
 
 void Editor::DrawCurrentSceneHierarchy() {
@@ -412,6 +413,7 @@ void Editor::DrawUI() {
     DrawSceneHierarchy();
     DrawInspector();
     DrawAssetManager();
+    EditorConsole::Draw("Console", nullptr);
     DrawViewport();
 
     DrawModals();

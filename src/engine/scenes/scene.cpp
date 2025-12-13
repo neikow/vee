@@ -20,6 +20,10 @@ std::string &Scene::GetPath() {
 }
 
 void Scene::SetPath(const std::string &path) {
+    if (m_Path != path) {
+        m_IsDirty = true;
+    }
+
     m_Path = path;
 }
 

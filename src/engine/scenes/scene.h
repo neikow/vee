@@ -21,6 +21,8 @@ class Scene {
     std::string m_Name = "Untitled Scene";
     std::string m_Path;
 
+    bool m_IsDirty = false;
+
 public:
     explicit Scene(
         const std::string &path,
@@ -42,6 +44,9 @@ public:
     }
 
     void SetName(const std::string &name) {
+        if (m_Name != name) {
+            m_IsDirty = true;
+        }
         m_Name = name;
     }
 

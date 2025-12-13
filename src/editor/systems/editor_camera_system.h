@@ -9,13 +9,13 @@
 
 
 class EditorCameraSystem final : public CameraSystem {
-    const Editor *m_Editor;
+    const VeeEditor *m_Editor;
 
 public:
     EditorCameraSystem(
         const std::shared_ptr<AbstractRenderer> &renderer,
         const std::shared_ptr<ComponentManager> &componentManager,
-        const Editor *editor
+        const VeeEditor *editor
     ) : CameraSystem(renderer, componentManager), m_Editor(editor) {
     }
 

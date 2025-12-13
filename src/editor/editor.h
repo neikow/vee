@@ -6,6 +6,7 @@
 #include "io/shortcut_manager.h"
 #include "scenes/scene_manager.h"
 #include "settings/editor_settings.h"
+#include "ui/editor_console.h"
 
 struct EditorState {
     bool isViewportFocused = false;
@@ -14,7 +15,7 @@ struct EditorState {
     bool shouldSaveSceneAsModalOpen = false;
 };
 
-class Editor {
+class VeeEditor {
     std::shared_ptr<Engine> m_Engine;
     std::unique_ptr<SceneManager> m_SceneManager;
 
@@ -27,46 +28,36 @@ class Editor {
 
     EntityID m_SelectedEntity = NULL_ENTITY;
 
-    void DrawCurrentSceneHierarchy();
-
-    void DrawEntityNode(EntityID entityID);
-
-    void NewEmptyScene();
-
-    void DrawScenePicker();
-
-    void DrawSceneHierarchy();
-
-    void DrawEntityInspector() const;
-
-    void DrawSceneInspector();
-
-    void DrawInspector();
-
-    void ReloadCurrentSceneFromFile();
-
-    void HandleEntitySelectionWithinViewport(double normX, double normY);
-
-    void DrawViewport();
-
-    void DrawAssetManager() const;
-
     void DrawModals();
 
     void DrawUI();
 
 public:
-    explicit Editor(const std::shared_ptr<Engine> &engine)
+    explicit VeeEditor(const std::shared_ptr<Engine> &engine)
         : m_Engine(engine) {
         m_SceneManager = std::make_unique<SceneManager>(m_Engine);
         m_ShortcutManager = std::make_unique<ShortcutManager>();
     }
 
+    void ReloadCurrentSceneFromFile();
+
+    void HandleEntitySelectionWithinViewport(double normX, double normY);
+
+    void NewEmptyScene();
+
     [[nodiscard]] EditorSettings GetEditorSettings() const {
         return m_EditorSettings;
     }
 
+    [[nodiscard]] EditorSettings &GetEditorSettings() {
+        return m_EditorSettings;
+    }
+
     [[nodiscard]] EditorState GetEditorState() const {
+        return m_State;
+    }
+
+    [[nodiscard]] EditorState &GetEditorState() {
         return m_State;
     }
 
@@ -84,7 +75,19 @@ public:
         m_Engine->Pause();
         m_SceneManager->LoadScene(path);
         CreateEditorInternalEntities();
-    };
+    }
+
+    [[nodiscard]] EntityID GetSelectedEntity() const {
+        return m_SelectedEntity;
+    }
+
+    [[nodiscard]] std::shared_ptr<Scene> GetScene() const {
+        return m_Engine->GetScene();
+    }
+
+    [[nodiscard]] std::shared_ptr<Engine> GetEngine() const {
+        return m_Engine;
+    }
 };
 
 

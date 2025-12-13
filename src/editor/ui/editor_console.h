@@ -5,18 +5,17 @@
 
 ImVec4 GetLogLevelColor(LogLevel level);
 
-class EditorConsole {
-    bool m_ScrollToBottom = true;
+class VeeEditor;
 
-    EditorConsole() = default;
-
-public:
-    static EditorConsole &GetInstance() {
-        static EditorConsole instance;
-        return instance;
-    }
-
-    static void Draw(const char *title, bool *p_open);
-};
-
+namespace Editor::UI {
+    class Console {
+    public:
+        /** Draws the Console window.
+         *
+         * @param title The title of the window.
+         * @param editor Pointer to the VeeEditor instance.
+        */
+        static void Draw(const char *title, VeeEditor *editor);
+    };
+}
 #endif //VEE_CONSOLE_H

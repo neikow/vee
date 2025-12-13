@@ -45,7 +45,7 @@ int main() {
 
                 Signature editorCameraSignature;
                 editorCameraSignature.set(ComponentTypeHelper<CameraComponent>::ID);
-                editorCameraSignature.set(ComponentTypeHelper<TransformComponent>::ID);
+                editorCameraSignature.set(ComponentTypeHelper<LocalTransformComponent>::ID);
                 editorCameraSignature.set(ComponentTypeHelper<EditorCameraTagComponent>::ID);
                 systemManager->template RegisterSystem<EditorCameraSystem>(
                     std::make_shared<EditorCameraSystem>(
@@ -57,6 +57,8 @@ int main() {
                 systemManager->template SetSignature<EditorCameraSystem>(editorCameraSignature);
             }
         );
+
+        Logger::Info("Initializing Editor...");
 
         // TODO: Make the scene picking available at runtime to remove this line
         g_Editor->LoadScene("../.editor_data/scenes/scene2.scene");

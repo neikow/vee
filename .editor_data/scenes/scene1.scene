@@ -14,7 +14,7 @@ textures:
 entities:
   - id: 0
     components:
-      - type: TransformComponent
+      - type: LocalTransformComponent
         position: [ 0, 0.15, 3.0 ]
         rotation: [ 1, 0.50, 0, 0 ]
         scale: [ 1, 1, 1 ]
@@ -27,7 +27,7 @@ entities:
       - type: ActiveCameraTagComponent
   - id: 1
     components:
-      - type: TransformComponent
+      - type: LocalTransformComponent
         position: [ 0, 0, 0 ]
         rotation: [ 1, 0, 0, 0 ]
         scale: [ 1, 1, 1 ]

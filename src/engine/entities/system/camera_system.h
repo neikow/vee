@@ -1,11 +1,14 @@
 #ifndef GAME_ENGINE_CAMERA_SYSTEM_H
 #define GAME_ENGINE_CAMERA_SYSTEM_H
 #include "system.h"
+#include "../../logging/logger.h"
 
 #include "../../renderer/abstract.h"
+#include "../../utils/macros/log_macros.h"
 #include "../components_system/component_manager.h"
-#include "../components_system/components/transform_component.h"
+#include "../components_system/components/local_transform_component.h"
 #include "../components_system/components/camera_component.h"
+#include "../components_system/components/parent_component.h"
 #include "../components_system/tags/editor_camera_tag_component.h"
 
 
@@ -30,17 +33,17 @@ public:
         }
 
         if (!activeCameraId.has_value()) {
-            std::cerr <<
-                    "No active camera found in CameraSystem. "
-                    "You should set the Camera's ActiveCameraTagComponent for it to be picked up."
-                    << std::endl;
+            LOG_ERROR(
+                "No active camera found in CameraSystem. "
+                "You should set the Camera's ActiveCameraTagComponent for it to be picked up."
+            );
             return NULL_ENTITY;
         }
 
         return activeCameraId.value();
     }
 
-    virtual glm::mat4 ComputeViewMatrix(TransformComponent &transform) {
+    virtual glm::mat4 ComputeViewMatrix(LocalTransformComponent &transform) {
         const glm::mat4 M_world = glm::translate(glm::mat4_cast(transform.rotation), transform.position);
 
         return glm::inverse(M_world);
@@ -77,7 +80,12 @@ public:
             return;
         }
 
-        auto &transform = m_ComponentManager->GetComponent<TransformComponent>(activeCameraId);
+        // TODO: Use LocalToWorldComponent to allow nested cameras
+        if (m_ComponentManager->HasComponent<ParentComponent>(activeCameraId)) {
+            LOG_WARN("Not implemented : CameraSystem does not support ParentComponent on camera entities yet.");
+        }
+
+        auto &transform = m_ComponentManager->GetComponent<LocalTransformComponent>(activeCameraId);
         auto &cameraComponent = m_ComponentManager->GetComponent<CameraComponent>(activeCameraId);
 
         UpdateCamera(cameraComponent);

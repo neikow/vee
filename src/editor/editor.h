@@ -29,6 +29,8 @@ class Editor {
 
     void DrawCurrentSceneHierarchy();
 
+    void DrawEntityNode(EntityID entityID);
+
     void NewEmptyScene();
 
     void DrawScenePicker();

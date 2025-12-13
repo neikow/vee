@@ -1,2 +1,15 @@
 - [ ] Check Bindless Rendering Pipeline
 - [ ] Add Vulkan SPIR-V Reflection https://github.com/KhronosGroup/SPIRV-Reflect
+- [ ] Implement entity grouping
+    - [x] Parent component
+    - [x] Child component
+    - [x] Transform propagation
+    - [ ] Group selection in editor
+    - [ ] Group manipulation in editor
+    - [x] Serialization of groups
+    - [ ] Fix "detach" button in inspector
+- [ ] Logger
+    - [x] Implement logger singleton
+    - [x] Integrate logger console in editor
+    - [ ] File logging
+    - [ ] In Dev : logging in editor and terminal

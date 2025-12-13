@@ -1,16 +1,16 @@
 #include "display_system.h"
 
 #include "../../../editor/editor.h"
-#include "../../utils/math_utils.h"
-#include "../components_system/components/transform_component.h"
+#include "../../utils/macros/log_macros.h"
 #include "../components_system/components/camera_component.h"
 #include "../components_system/components/renderable_component.h"
 #include "../components_system/component_manager.h"
-#include "../components_system/tags/active_camera_tag_component.h"
+#include "../components_system/components/local_to_world_component.h"
 
 void DisplaySystem::PrepareCamera(const EntityID cameraEntityId) const {
     if (cameraEntityId == NULL_ENTITY) {
-        throw std::runtime_error("No camera to prepare.");
+        LOG_ERROR("No valid camera entity ID provided to DisplaySystem::PrepareCamera.");
+        return;
     }
 
     const auto &cameraComponent = m_ComponentManager->GetComponent<CameraComponent>(cameraEntityId);
@@ -23,18 +23,12 @@ void DisplaySystem::PrepareCamera(const EntityID cameraEntityId) const {
 
 void DisplaySystem::SubmitDrawCalls() const {
     for (const auto &entity: m_Entities) {
-        const auto &transform = m_ComponentManager->GetComponent<TransformComponent>(entity);
+        const auto &entityTransform = m_ComponentManager->GetComponent<LocalToWorldComponent>(entity);
         const auto &renderable = m_ComponentManager->GetComponent<RenderableComponent>(entity);
-
-        glm::mat4x4 worldMatrix = Utils::Math::CalculateWorldMatrix(
-            transform.position,
-            transform.rotation,
-            transform.scale
-        );
 
         m_Renderer->SubmitDrawCall(
             entity,
-            worldMatrix,
+            entityTransform.localToWorldMatrix,
             renderable.meshId,
             renderable.textureId
         );

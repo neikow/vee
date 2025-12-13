@@ -4,11 +4,16 @@
 
 #include "../engine.h"
 #include "../entities/components_system/components/camera_component.h"
-#include "../entities/components_system/components/transform_component.h"
+#include "../entities/components_system/components/local_transform_component.h"
 #include "../entities/components_system/components/camera_component.h"
+#include "../entities/components_system/components/children_component.h"
+#include "../entities/components_system/components/local_to_world_component.h"
+#include "../entities/components_system/components/parent_component.h"
 #include "../entities/components_system/components/renderable_component.h"
 #include "../entities/components_system/components/velocity_component.h"
 #include "../entities/components_system/tags/active_camera_tag_component.h"
+#include "../utils/entities/hierarchy.h"
+#include "../utils/macros/log_macros.h"
 #include "yaml-cpp/yaml.h"
 
 struct InternalTagComponent;
@@ -30,7 +35,7 @@ void operator>>(const YAML::Node &node, glm::quat &q) {
     );
 }
 
-void operator>>(const YAML::Node &node, TransformComponent &c) {
+void operator>>(const YAML::Node &node, LocalTransformComponent &c) {
     node["position"] >> c.position;
     node["rotation"] >> c.rotation;
     node["scale"] >> c.scale;
@@ -75,6 +80,10 @@ void operator>>(const YAML::Node &node, RenderableComponent &c) {
     node["texture_id"] >> c.textureId;
 }
 
+void operator>>(const YAML::Node &node, ParentComponent &c) {
+    node["parent_id"] >> c.parent;
+}
+
 void DeserializeComponentV0(
     const YAML::Node &componentNode,
     const EntityID entityId,
@@ -88,22 +97,27 @@ void DeserializeComponentV0(
     const auto typeStr = componentType.as<std::string>();
     const auto componentManager = scenePtr->GetComponentManager();
 
-    if (typeStr == "TransformComponent") {
-        TransformComponent transform{};
+    if (typeStr == VEE_PARENT_COMPONENT_NAME) {
+        ParentComponent parent{};
+        componentNode >> parent;
+        Utils::Entities::Hierarchy::SetParent(entityId, parent.parent, componentManager);
+    } else if (typeStr == VEE_LOCAL_TRANSFORM_COMPONENT_NAME) {
+        LocalTransformComponent transform{};
         componentNode >> transform;
-        componentManager->AddComponent<TransformComponent>(entityId, transform);
-    } else if (typeStr == "CameraComponent") {
+        componentManager->AddComponent<LocalTransformComponent>(entityId, transform);
+        componentManager->AddComponent<LocalToWorldComponent>(entityId, {});
+    } else if (typeStr == VEE_CAMERA_COMPONENT_NAME) {
         CameraComponent camera{};
         componentNode >> camera;
         componentManager->AddComponent<CameraComponent>(entityId, camera);
-    } else if (typeStr == "ActiveCameraTagComponent") {
+    } else if (typeStr == VEE_ACTIVE_CAMERA_TAG_COMPONENT_NAME) {
         constexpr ActiveCameraTagComponent tag{};
         componentManager->AddComponent<ActiveCameraTagComponent>(entityId, tag);
-    } else if (typeStr == "VelocityComponent") {
+    } else if (typeStr == VEE_VELOCITY_COMPONENT_NAME) {
         VelocityComponent velocity{};
         componentNode >> velocity;
         componentManager->AddComponent<VelocityComponent>(entityId, velocity);
-    } else if (typeStr == "RenderableComponent") {
+    } else if (typeStr == VEE_RENDERABLE_COMPONENT_NAME) {
         RenderableComponent renderable{};
         componentNode >> renderable;
         componentManager->AddComponent<RenderableComponent>(entityId, renderable);
@@ -118,8 +132,14 @@ void DeserializeEntityV0(
     if (entityNode["name"]) {
         entityName = entityNode["name"].as<std::string>();
     }
+    if (!entityNode["id"]) {
+        throw std::runtime_error("Invalid entity node: missing 'id'");
+    }
 
-    const auto entityId = scenePtr->CreateEntity(entityName);
+    const auto entityId = scenePtr->CreateEntity(
+        entityName,
+        entityNode["id"].as<EntityID>()
+    );
     const auto components = entityNode["components"];
     if (!components) {
         throw std::runtime_error("Invalid entity node");
@@ -212,7 +232,7 @@ void operator<<(YAML::Emitter &out, const glm::quat &q) {
     out << YAML::Flow << YAML::BeginSeq << q.w << q.x << q.y << q.z << YAML::EndSeq;
 }
 
-void operator<<(YAML::Emitter &out, const TransformComponent &transform) {
+void operator<<(YAML::Emitter &out, const LocalTransformComponent &transform) {
     out << YAML::Key << "position" << YAML::Value << transform.position;
     out << YAML::Key << "rotation" << YAML::Value << transform.rotation;
     out << YAML::Key << "scale" << YAML::Value << transform.scale;
@@ -235,6 +255,10 @@ void operator<<(YAML::Emitter &out, const VelocityComponent &velocity) {
 void operator<<(YAML::Emitter &out, const RenderableComponent &renderable) {
     out << YAML::Key << "mesh_id" << YAML::Value << renderable.meshId;
     out << YAML::Key << "texture_id" << YAML::Value << renderable.textureId;
+}
+
+void operator<<(YAML::Emitter &out, const ParentComponent &parent) {
+    out << YAML::Key << "parent_id" << YAML::Value << parent.parent;
 }
 
 void SerializeSceneV0(
@@ -268,13 +292,23 @@ void SerializeSceneV0(
 
         const auto componentTypes = componentManager->GetEntityComponents(entity);
         for (const auto &componentType: componentTypes) {
-            out << YAML::BeginMap;
             const auto componentTypeName = componentManager->GetComponentName(componentType);
+
+            if (
+                componentType == ComponentTypeHelper<LocalToWorldComponent>::ID
+                || componentType == ComponentTypeHelper<ChildrenComponent>::ID
+            ) {
+                // This component is derived, no need to serialize
+                continue;
+            }
+
+            out << YAML::BeginMap;
             out << YAML::Key << "type" << YAML::Value << componentTypeName;
 
-
-            if (componentType == ComponentTypeHelper<TransformComponent>::ID) {
-                out << componentManager->GetComponent<TransformComponent>(entity);
+            if (componentType == ComponentTypeHelper<ParentComponent>::ID) {
+                out << componentManager->GetComponent<ParentComponent>(entity);
+            } else if (componentType == ComponentTypeHelper<LocalTransformComponent>::ID) {
+                out << componentManager->GetComponent<LocalTransformComponent>(entity);
             } else if (componentType == ComponentTypeHelper<CameraComponent>::ID) {
                 out << componentManager->GetComponent<CameraComponent>(entity);
             } else if (componentType == ComponentTypeHelper<VelocityComponent>::ID) {
@@ -284,7 +318,7 @@ void SerializeSceneV0(
             } else if (componentType == ComponentTypeHelper<ActiveCameraTagComponent>::ID) {
                 // Tag component, no data to serialize
             } else {
-                throw std::runtime_error("Unknown component type during serialization: " + componentTypeName);
+                LOG_ERROR("Unknown component type during serialization: " + componentTypeName);
             }
             out << YAML::EndMap;
         }

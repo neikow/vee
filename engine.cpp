@@ -22,7 +22,7 @@
 #include "src/engine/entities/components_system/component_manager.h"
 #include "src/engine/entities/components_system/components/camera_component.h"
 #include "src/engine/entities/components_system/components/renderable_component.h"
-#include "src/engine/entities/components_system/components/transform_component.h"
+#include "src/engine/entities/components_system/components/local_transform_component.h"
 #include "src/engine/entities/components_system/components/velocity_component.h"
 #include "src/engine/entities/components_system/tags/active_camera_tag_component.h"
 #include "src/engine/entities/system/camera_system.h"
@@ -45,7 +45,7 @@ int main() {
         g_Engine->RegisterSystems([&g_Renderer](auto, auto &systemManager, auto &componentManager) {
             Signature activeCameraSignature;
             activeCameraSignature.set(ComponentTypeHelper<CameraComponent>::ID);
-            activeCameraSignature.set(ComponentTypeHelper<TransformComponent>::ID);
+            activeCameraSignature.set(ComponentTypeHelper<LocalTransformComponent>::ID);
             activeCameraSignature.set(ComponentTypeHelper<ActiveCameraTagComponent>::ID);
             systemManager->template RegisterSystem<CameraSystem>(
                 std::make_shared<CameraSystem>(
@@ -62,7 +62,7 @@ int main() {
 
         Signature signature;
         signature.set(ComponentTypeHelper<CameraComponent>::ID);
-        signature.set(ComponentTypeHelper<TransformComponent>::ID);
+        signature.set(ComponentTypeHelper<LocalTransformComponent>::ID);
         signature.set(ComponentTypeHelper<ActiveCameraTagComponent>::ID);
 
         const auto cameraId = Utils::Entities::GetFirstEntityWithSignature(

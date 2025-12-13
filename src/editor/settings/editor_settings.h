@@ -2,7 +2,7 @@
 #define VEE_EDITOR_SETTINGS_H
 
 struct EditorSettings {
-    bool displayInternalEntities = true;
+    bool displayDebugInfo = true;
     float zoomSpeed = 1.0f;
 };
 

@@ -64,13 +64,13 @@ void Scene::RegisterInternalSystems() {
 }
 
 void Scene::RegisterInternalComponents() const {
-    m_ComponentManager->RegisterComponent<InternalTagComponent>("InternalTagComponent");
-    m_ComponentManager->RegisterComponent<ParentComponent>("ParentComponent");
-    m_ComponentManager->RegisterComponent<ChildrenComponent>("ChildrenComponent");
-    m_ComponentManager->RegisterComponent<LocalTransformComponent>("TransformComponent");
-    m_ComponentManager->RegisterComponent<LocalToWorldComponent>("LocalToWorldComponent");
-    m_ComponentManager->RegisterComponent<VelocityComponent>("VelocityComponent");
-    m_ComponentManager->RegisterComponent<RenderableComponent>("RenderableComponent");
-    m_ComponentManager->RegisterComponent<CameraComponent>("CameraComponent");
-    m_ComponentManager->RegisterComponent<ActiveCameraTagComponent>("ActiveCameraTagComponent");
+    m_ComponentManager->RegisterComponent<InternalTagComponent>(VEE_INTERNAL_COMPONENT_NAME);
+    m_ComponentManager->RegisterComponent<ParentComponent>(VEE_PARENT_COMPONENT_NAME);
+    m_ComponentManager->RegisterComponent<ChildrenComponent>(VEE_CHILDREN_COMPONENT_NAME);
+    m_ComponentManager->RegisterComponent<LocalTransformComponent>(VEE_LOCAL_TRANSFORM_COMPONENT_NAME);
+    m_ComponentManager->RegisterComponent<LocalToWorldComponent>(VEE_LOCAL_TO_WORLD_COMPONENT_NAME);
+    m_ComponentManager->RegisterComponent<VelocityComponent>(VEE_VELOCITY_COMPONENT_NAME);
+    m_ComponentManager->RegisterComponent<RenderableComponent>(VEE_RENDERABLE_COMPONENT_NAME);
+    m_ComponentManager->RegisterComponent<CameraComponent>(VEE_CAMERA_COMPONENT_NAME);
+    m_ComponentManager->RegisterComponent<ActiveCameraTagComponent>(VEE_ACTIVE_CAMERA_TAG_COMPONENT_NAME);
 }

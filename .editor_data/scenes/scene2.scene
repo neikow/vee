@@ -24,7 +24,7 @@ entities:
         aspect_ratio: 0
         near_plane: 0.01
         far_plane: 200
-      - type: TransformComponent
+      - type: LocalTransformComponent
         position: [0, 0.15, 3]
         rotation: [0.8944272, 0.4472136, 0, 0]
         scale: [1, 1, 1]
@@ -32,7 +32,7 @@ entities:
   - id: 2
     name: Apple
     components:
-      - type: TransformComponent
+      - type: LocalTransformComponent
         position: [1, 0, 0]
         rotation: [1, 0, 0, 0]
         scale: [2, 2, 2]
@@ -45,10 +45,12 @@ entities:
   - id: 3
     name: Viking Room
     components:
-      - type: TransformComponent
+      - type: LocalTransformComponent
         position: [-1, 0.5, 0]
         rotation: [1, 0, 0, 0]
         scale: [1, 1, 1]
+      - type: ParentComponent
+        parent_id: 2
       - type: VelocityComponent
         linear: [0, 0, 0]
         angular: [0, 0, 1]

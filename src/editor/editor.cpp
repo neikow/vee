@@ -18,37 +18,78 @@
 #include "systems/editor_camera_system.h"
 #include "ui/editor_console.h"
 
-
 void Editor::DrawCurrentSceneHierarchy() {
     const auto scene = m_Engine->GetScene();
-    for (const auto &entity: scene->GetEntityManager()->GetAllEntities()) {
-        ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow;
+    const auto entityManager = scene->GetEntityManager();
+    const auto componentManager = scene->GetComponentManager();
 
-        const bool isInternal = m_Engine->GetScene()->GetComponentManager()->HasComponent<
-            InternalTagComponent>(entity.id);
+    // 1. Identify all root entities to begin the draw.
+    // We iterate over all entities and filter for those without a ParentComponent
+    // or whose ParentComponent points to NULL_ENTITY.
+    for (const auto &entityData: entityManager->GetAllEntities()) {
+        const Entities::EntityID entityID = entityData.id;
 
+        // Check for ParentComponent presence and value
+        bool isRoot = true;
+        if (componentManager->HasComponent<ParentComponent>(entityID)) {
+            const auto &parentComp = componentManager->GetComponent<ParentComponent>(entityID);
+            if (parentComp.parent != Entities::NULL_ENTITY) {
+                isRoot = false;
+            }
+        }
+
+        // Skip internal entities unless debug info is enabled
+        const bool isInternal = componentManager->HasComponent<InternalTagComponent>(entityID);
         if (!m_EditorSettings.displayDebugInfo && isInternal) {
             continue;
         }
 
-        if (entity.id == m_SelectedEntity) {
-            nodeFlags |= ImGuiTreeNodeFlags_Selected;
+        if (isRoot) {
+            DrawEntityNode(entityID);
+        }
+    }
+}
+
+void Editor::DrawEntityNode(const EntityID entityID) {
+    const auto scene = m_Engine->GetScene();
+    const auto entityManager = scene->GetEntityManager();
+    const auto componentManager = scene->GetComponentManager();
+
+    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow;
+
+    bool hasChildren = componentManager->HasComponent<ChildrenComponent>(entityID);
+    if (!hasChildren) {
+        nodeFlags |= ImGuiTreeNodeFlags_Leaf;
+    }
+
+    if (entityID == m_SelectedEntity) {
+        nodeFlags |= ImGuiTreeNodeFlags_Selected;
+    }
+
+    const bool isInternal = componentManager->HasComponent<InternalTagComponent>(entityID);
+    const std::string entityName = entityManager->GetEntityName(entityID);
+
+    const bool nodeOpen = ImGui::TreeNodeEx(
+        (void *) (uintptr_t) entityID,
+        nodeFlags,
+        isInternal ? "%s (Internal)" : "%s",
+        Utils::Strings::TruncateString(entityName, 20).c_str()
+    );
+
+    if (ImGui::IsItemClicked()) {
+        SelectEntity(entityID);
+    }
+
+    if (nodeOpen) {
+        if (hasChildren) {
+            const auto &childrenComp = componentManager->GetComponent<ChildrenComponent>(entityID);
+
+            for (const EntityID childID: childrenComp.children) {
+                DrawEntityNode(childID);
+            }
         }
 
-        const bool nodeOpen = ImGui::TreeNodeEx(
-            (void *) (uintptr_t) entity.id,
-            nodeFlags,
-            isInternal ? "%s (Intenal)" : "%s",
-            Utils::Strings::TruncateString(entity.name, 20).c_str()
-        );
-
-        if (ImGui::IsItemClicked()) {
-            SelectEntity(entity.id);
-        }
-
-        if (nodeOpen) {
-            ImGui::TreePop();
-        }
+        ImGui::TreePop();
     }
 }
 

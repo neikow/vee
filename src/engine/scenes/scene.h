@@ -65,6 +65,10 @@ public:
         return m_DisplaySystem;
     }
 
+    [[nodiscard]] EntityID CreateEntity(const std::string &name, const EntityID customEntityId) const {
+        return m_EntityManager->CreateEntity(name, customEntityId);
+    }
+
     [[nodiscard]] EntityID CreateEntity(const std::string &name) const {
         return m_EntityManager->CreateEntity(name);
     }

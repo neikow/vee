@@ -6,7 +6,8 @@
     - [x] Transform propagation
     - [ ] Group selection in editor
     - [ ] Group manipulation in editor
-    - [ ] Serialization of groups
+    - [x] Serialization of groups
+    - [ ] Fix "detach" button in inspector
 - [ ] Logger
     - [x] Implement logger singleton
     - [x] Integrate logger console in editor

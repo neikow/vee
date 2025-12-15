@@ -13,7 +13,9 @@
 #include "../entities/components_system/components/children_component.h"
 #include "../entities/components_system/components/local_to_world_component.h"
 #include "../entities/components_system/components/physics_settings_component.h"
+#include "../entities/components_system/components/player_controller_component.h"
 #include "../entities/system/movement_system.h"
+#include "../entities/system/player_controller_system.h"
 #include "../entities/system/transform_system.h"
 
 std::string &Scene::GetPath() {
@@ -43,6 +45,14 @@ void Scene::SetSceneEntity(const EntityID entity) { m_SceneEntity = entity; }
 EntityID Scene::GetSceneEntity() const { return m_SceneEntity; }
 
 void Scene::RegisterInternalSystems() {
+    Signature playerControllerSignature;
+    playerControllerSignature.set(ComponentTypeHelper<VelocityComponent>::ID);
+    playerControllerSignature.set(ComponentTypeHelper<PlayerControllerComponent>::ID);
+    m_SystemManager->RegisterSystem<PlayerControllerSystem>(
+        std::make_shared<PlayerControllerSystem>(m_ComponentManager)
+    );
+    m_SystemManager->SetSignature<PlayerControllerSystem>(playerControllerSignature);
+
     Signature movementSignature;
     movementSignature.set(ComponentTypeHelper<LocalTransformComponent>::ID);
     movementSignature.set(ComponentTypeHelper<VelocityComponent>::ID);
@@ -82,5 +92,6 @@ void Scene::RegisterInternalComponents() const {
     m_ComponentManager->RegisterComponent<VelocityComponent>(VEE_VELOCITY_COMPONENT_NAME);
     m_ComponentManager->RegisterComponent<RenderableComponent>(VEE_RENDERABLE_COMPONENT_NAME);
     m_ComponentManager->RegisterComponent<CameraComponent>(VEE_CAMERA_COMPONENT_NAME);
+    m_ComponentManager->RegisterComponent<PlayerControllerComponent>(VEE_PLAYER_CONTROLLER_COMPONENT_NAME);
     m_ComponentManager->RegisterComponent<ActiveCameraTagComponent>(VEE_ACTIVE_CAMERA_TAG_COMPONENT_NAME);
 }

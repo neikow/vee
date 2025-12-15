@@ -4,23 +4,12 @@
 #include <map>
 #include <GLFW/glfw3.h>
 
-enum Key {
-    KEY_A,
-    KEY_Z,
-    KEY_Q,
-    KEY_S,
-    KEY_D,
-    KEY_R,
-    KEY_LEFT_CONTROL,
-    KEY_SPACE,
-    KEY_SUPER,
-    KEY_DELETE,
-};
-
 enum MouseButton {
     MOUSE_BUTTON_LEFT,
     MOUSE_BUTTON_RIGHT,
 };
+
+using Key = int;
 
 class InputSystem {
     static std::map<Key, bool> s_keys;

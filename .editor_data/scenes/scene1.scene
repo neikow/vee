@@ -1,18 +1,19 @@
-name: Viking Scene
+name: Apple Player Controller Scene
 type: scene
 id: 0
 version: 0
 
 meshes:
   - id: 0
-    path: "../assets/models/viking_room.obj"
+    path: "../assets/models/apple.obj"
 
 textures:
   - id: 0
-    path: "../assets/textures/viking_room.png"
+    path: "../assets/textures/apple.jpg"
 
 entities:
   - id: 1
+    name: Main Camera
     components:
       - type: LocalTransformComponent
         position: [ 0, 0.15, 3.0 ]
@@ -26,6 +27,7 @@ entities:
         far_plane: 200
       - type: ActiveCameraTagComponent
   - id: 2
+    name: Apple Player Controller
     components:
       - type: LocalTransformComponent
         position: [ 0, 0, 0 ]
@@ -34,6 +36,13 @@ entities:
       - type: VelocityComponent
         linear: [ 0, 0, 0 ]
         angular: [ 0, 0, 1.0 ]
+      - type: PlayerControllerComponent
+        movement_speed: 2.0
+        forward_direction: [ 0, 1, 0 ]
+        move_forward_key: 87
+        move_backward_key: 83
+        move_left_key: 65
+        move_right_key: 68
       - type: RenderableComponent
         mesh_id: 0
         texture_id: 0

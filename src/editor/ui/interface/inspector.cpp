@@ -6,6 +6,7 @@
 #include "../../../engine/entities/components_system/components/local_transform_component.h"
 #include "../../../engine/entities/components_system/components/parent_component.h"
 #include "../../../engine/entities/components_system/components/physics_settings_component.h"
+#include "../../../engine/entities/components_system/components/player_controller_component.h"
 #include "../../../engine/entities/components_system/components/renderable_component.h"
 #include "../../../engine/entities/components_system/components/velocity_component.h"
 #include "../../../engine/entities/components_system/tags/active_camera_tag_component.h"
@@ -290,6 +291,32 @@ void Editor::UI::Inspector::DrawEntityInspector(
                     1,
                     1, 100
                 );
+            }
+        } else if (componentTypeID == ComponentTypeHelper<PlayerControllerComponent>::ID) {
+            if (ImGui::CollapsingHeader("Player Controller", flags)) {
+                auto &playerController = componentManager->GetComponent<PlayerControllerComponent>(entity);
+
+                ImGui::DragFloat(
+                    "Movement Speed",
+                    &playerController.movementSpeed,
+                    0.1f,
+                    0.1f,
+                    100.0f
+                );
+
+                static glm::vec3 tempForwardDirection = playerController.forwardDirection;
+
+                ImGui::DragFloat3(
+                    "Forward Direction",
+                    &tempForwardDirection.x,
+                    0.1f,
+                    -1.0f,
+                    1.0f
+                );
+
+                if (ImGui::IsItemDeactivatedAfterEdit()) {
+                    playerController.forwardDirection = glm::normalize(tempForwardDirection);
+                }
             }
         }
     }

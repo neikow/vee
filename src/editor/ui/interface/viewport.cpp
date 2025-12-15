@@ -1,7 +1,8 @@
 #include "viewport.h"
 
 #include "imgui_internal.h"
-#include "../renderer/vulkan/vulkan_renderer_with_ui.h"
+#include "../../commands/reload_current_scene_from_file.h"
+#include "../../renderer/vulkan/vulkan_renderer_with_ui.h"
 
 void Editor::UI::Viewport::Draw(const char *title, VeeEditor *editor) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
@@ -52,7 +53,7 @@ void Editor::UI::Viewport::Draw(const char *title, VeeEditor *editor) {
         ImGui::SameLine();
 
         if (ImGui::Button("Reset")) {
-            editor->ReloadCurrentSceneFromFile();
+            Command::ReloadCurrentSceneFromFile(editor).Execute();
         }
 
         ImGui::Separator();

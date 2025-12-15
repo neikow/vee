@@ -5,22 +5,24 @@
 #include "../engine/entities/components_system/components/renderable_component.h"
 #include "../engine/entities/components_system/components/camera_component.h"
 #include "../engine/entities/components_system/components/children_component.h"
-#include "../engine/entities/components_system/components/local_to_world_component.h"
 #include "../engine/entities/components_system/components/local_transform_component.h"
-#include "../engine/entities/components_system/components/velocity_component.h"
-#include "../engine/entities/components_system/tags/active_camera_tag_component.h"
 #include "../engine/entities/components_system/tags/editor_camera_tag_component.h"
 #include "../engine/entities/components_system/tags/internal_tag_component.h"
 #include "../engine/io/input_system.h"
-#include "../engine/utils/strings.h"
 #include "../engine/utils/entities/hierarchy.h"
+#include "commands/create_entity_in_scene.h"
+#include "commands/delete_entity.h"
+#include "commands/reload_current_scene_from_file.h"
+#include "commands/save_scene.h"
 #include "renderer/vulkan/vulkan_renderer_with_ui.h"
 #include "systems/editor_camera_system.h"
-#include "ui/asset_manager.h"
-#include "ui/editor_console.h"
-#include "ui/inspector.h"
-#include "ui/scene_hierarchy.h"
-#include "ui/viewport.h"
+#include "ui/interface/asset_manager.h"
+#include "ui/interface/editor_console.h"
+#include "ui/interface/inspector.h"
+#include "ui/interface/scene_hierarchy.h"
+#include "ui/interface/viewport.h"
+#include "ui/interface/modals/save_scene_as_modal.h"
+#include "ui/interface/modals/types.h"
 
 void VeeEditor::NewEmptyScene() {
     m_SelectedEntity = NULL_ENTITY;
@@ -28,64 +30,25 @@ void VeeEditor::NewEmptyScene() {
     CreateEditorInternalEntities();
 }
 
-void VeeEditor::ReloadCurrentSceneFromFile() {
-    m_Engine->Pause();
-    LoadScene(m_Engine->GetScene()->GetPath());
-}
+EditorSettings VeeEditor::GetEditorSettings() const { return m_EditorSettings; }
+
+EditorSettings &VeeEditor::GetEditorSettings() { return m_EditorSettings; }
+
+EditorState VeeEditor::GetEditorState() const { return m_State; }
+
+EditorState &VeeEditor::GetEditorState() { return m_State; }
+
+void VeeEditor::SelectEntity(const EntityID entityID) { m_SelectedEntity = entityID; }
 
 void VeeEditor::HandleEntitySelectionWithinViewport(const double normX, const double normY) {
     const auto renderer = std::static_pointer_cast<Vulkan::RendererWithUi>(m_Engine->GetRenderer());
     m_SelectedEntity = renderer->GetEntityIDAt(normX, normY);
 }
 
-void VeeEditor::DrawModals() {
-    if (m_State.shouldSaveSceneAsModalOpen) {
-        ImGui::OpenPopup("Provide a Scene name", ImGuiWindowFlags_AlwaysAutoResize);
-        m_State.shouldSaveSceneAsModalOpen = false;
-    }
+void VeeEditor::DrawModals() const {
+    using namespace Editor::UI::Modals;
 
-    if (ImGui::BeginPopupModal("Provide a Scene name", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::SetItemDefaultFocus();
-
-        ImGui::Text("Scene Name:");
-        static char sceneNameBuffer[256] = "";
-        ImGui::InputText("##SceneNameInput", sceneNameBuffer, IM_ARRAYSIZE(sceneNameBuffer));
-
-        const auto sceneFileName = Utils::Strings::ToLower(
-            Utils::Strings::ReplaceAll(
-                Utils::Strings::TrimWhitespace(
-                    sceneNameBuffer
-                ),
-                " ",
-                "_"
-            )
-        );
-
-        ImGui::Text(
-            "%s.scene",
-            sceneFileName.c_str()
-        );
-        ImGui::Separator();
-
-
-        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-            ImGui::CloseCurrentPopup();
-        }
-
-        ImGui::SameLine();
-
-        ImGui::BeginDisabled(sceneFileName.empty());
-        if (ImGui::Button("Save", ImVec2(120, 0))) {
-            ImGui::CloseCurrentPopup();
-
-            m_SceneManager->SaveScene(
-                "../.editor_data/scenes/" + sceneFileName + ".scene",
-                sceneNameBuffer
-            );
-        }
-        ImGui::EndDisabled();
-        ImGui::EndPopup();
-    }
+    SaveSceneAsModal(m_SceneManager.get()).Draw();
 }
 
 void VeeEditor::DrawUI() {
@@ -104,61 +67,18 @@ void VeeEditor::DrawUI() {
     Viewport::Draw("Viewport", this);
 
     DrawModals();
+}
 
-    ImGui::Render();
+VeeEditor::VeeEditor(const std::shared_ptr<Engine> &engine) : m_Engine(engine) {
+    m_UIManager = std::make_shared<Editor::UIManager>();
+    m_SceneManager = std::make_shared<SceneManager>(m_Engine);
+    m_ShortcutManager = std::make_unique<ShortcutManager>();
 }
 
 void VeeEditor::Run(const int width, const int height) {
     m_Engine->Initialize(width, height, "Editor", VK_MAKE_VERSION(1, 0, 0));
 
     auto lastTime = std::chrono::high_resolution_clock::now();
-
-    m_ShortcutManager->RegisterShortcut(
-        SHORTCUT_RELOAD,
-        {KEY_LEFT_CONTROL, KEY_R},
-        [this] {
-            ReloadCurrentSceneFromFile();
-        }
-    );
-    m_ShortcutManager->RegisterShortcut(
-        SHORTCUT_SAVE,
-        {KEY_SUPER, KEY_S},
-        [this] {
-            const auto scene = m_Engine->GetScene();
-
-            const auto scenePath = scene->GetPath();
-
-            if (scenePath.empty()) {
-                m_State.shouldSaveSceneAsModalOpen = true;
-                return;
-            }
-
-            m_SceneManager->SaveScene(
-                scenePath,
-                scene->GetName()
-            );
-        }
-    );
-    m_ShortcutManager->RegisterShortcut(
-        SHORTCUT_ADD_ENTITY_TO_SCENE,
-        {KEY_LEFT_CONTROL, KEY_SPACE},
-        [this] {
-            m_SelectedEntity = m_Engine->GetScene()->CreateEntity("Unnamed Entity");
-        }
-    );
-    m_ShortcutManager->RegisterShortcut(
-        SHORTCUT_DELETE,
-        {KEY_LEFT_CONTROL, KEY_DELETE},
-        [this] {
-            if (m_SelectedEntity == NULL_ENTITY) return;
-
-            const auto scene = m_Engine->GetScene();
-
-            if (scene->DestroyEntity(m_SelectedEntity)) {
-                m_SelectedEntity = NULL_ENTITY;
-            }
-        }
-    );
 
     while (!m_Engine->GetRenderer()->ShouldClose()) {
         glfwPollEvents();
@@ -173,9 +93,11 @@ void VeeEditor::Run(const int width, const int height) {
 
         DrawUI();
 
-        m_Engine->GetRenderer()->Draw();
-
         m_ShortcutManager->HandleShortcuts();
+
+        ImGui::Render();
+
+        m_Engine->GetRenderer()->Draw();
 
         InputSystem::UpdateEndOfFrame();
     }
@@ -223,4 +145,83 @@ void VeeEditor::CreateEditorCamera(const std::shared_ptr<Scene> &scene) {
 
 void VeeEditor::CreateEditorInternalEntities() {
     CreateEditorCamera(m_Engine->GetScene());
+}
+
+void VeeEditor::LoadScene(const std::string &path) {
+    m_Engine->Pause();
+    m_SceneManager->LoadScene(path);
+    CreateEditorInternalEntities();
+}
+
+EntityID VeeEditor::GetSelectedEntity() const { return m_SelectedEntity; }
+
+std::shared_ptr<Scene> VeeEditor::GetScene() const { return m_Engine->GetScene(); }
+
+std::shared_ptr<Engine> VeeEditor::GetEngine() const { return m_Engine; }
+
+std::shared_ptr<Editor::UIManager> VeeEditor::GetUIManager() const { return m_UIManager; }
+
+std::shared_ptr<SceneManager> VeeEditor::GetSceneManager() { return m_SceneManager; }
+
+void VeeEditor::RegisterShortcuts() {
+    m_ShortcutManager->RegisterShortcut(
+        SHORTCUT_RELOAD,
+        {KEY_LEFT_CONTROL, KEY_R},
+        [this] {
+            Editor::Command::ReloadCurrentSceneFromFile(this).Execute();
+        }
+    );
+    m_ShortcutManager->RegisterShortcut(
+        SHORTCUT_SAVE,
+        {KEY_SUPER, KEY_S},
+        [this] {
+            Editor::Command::SaveScene(this).Execute();
+        }
+    );
+    m_ShortcutManager->RegisterShortcut(
+        SHORTCUT_ADD_ENTITY_TO_SCENE,
+        {KEY_LEFT_CONTROL, KEY_SPACE},
+        [this] {
+            Editor::Command::CreateEntityInScene(this).Execute();
+        }
+    );
+    m_ShortcutManager->RegisterShortcut(
+        SHORTCUT_DELETE,
+        {KEY_LEFT_CONTROL, KEY_DELETE},
+        [this] {
+            Editor::Command::DeleteEntity(this).Execute();
+        }
+    );
+}
+
+void VeeEditor::RegisterInternalSystems() {
+    m_Engine->RegisterSystems(
+        [this](
+    const auto &,
+    const auto &systemManager,
+    const auto &componentManager
+) {
+            componentManager->template RegisterComponent<EditorCameraTagComponent>(
+                VEE_EDITOR_CAMERA_TAG_COMPONENT_NAME
+            );
+
+            Signature editorCameraSignature;
+            editorCameraSignature.set(ComponentTypeHelper<CameraComponent>::ID);
+            editorCameraSignature.set(ComponentTypeHelper<LocalTransformComponent>::ID);
+            editorCameraSignature.set(ComponentTypeHelper<EditorCameraTagComponent>::ID);
+            systemManager->template RegisterSystem<EditorCameraSystem>(
+                std::make_shared<EditorCameraSystem>(
+                    m_Engine->GetRenderer(),
+                    componentManager,
+                    this
+                )
+            );
+            systemManager->template SetSignature<EditorCameraSystem>(editorCameraSignature);
+        }
+    );
+}
+
+void VeeEditor::Initialize() {
+    RegisterInternalSystems();
+    RegisterShortcuts();
 }

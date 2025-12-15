@@ -1,5 +1,8 @@
 #include "scene_hierarchy.h"
 
+#include "../../../engine/entities/components_system/components/parent_component.h"
+#include "../../../engine/utils/strings.h"
+
 void Editor::UI::SceneHierarchy::DrawHierarchy(VeeEditor *editor, const std::shared_ptr<Scene> &scene) {
     const auto entityManager = scene->GetEntityManager();
     const auto componentManager = scene->GetComponentManager();

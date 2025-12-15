@@ -1,6 +1,6 @@
 #ifndef VEE_VIEWPORT_H
 #define VEE_VIEWPORT_H
-#include "../editor.h"
+#include "../../editor.h"
 
 namespace Editor::UI {
     class Viewport {

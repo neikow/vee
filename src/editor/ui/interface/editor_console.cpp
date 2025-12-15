@@ -1,6 +1,6 @@
 #include "editor_console.h"
 
-#include "../editor.h"
+#include "../../editor.h"
 
 ImVec4 GetLogLevelColor(const LogLevel level) {
     switch (level) {

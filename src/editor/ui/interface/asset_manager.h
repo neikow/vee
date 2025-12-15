@@ -1,6 +1,7 @@
 #ifndef VEE_EDITOR_UI_ASSET_MANAGER_H
 #define VEE_EDITOR_UI_ASSET_MANAGER_H
-#include "../editor.h"
+
+class VeeEditor;
 
 namespace Editor::UI {
     class AssetManager {

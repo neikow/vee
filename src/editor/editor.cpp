@@ -166,28 +166,28 @@ std::shared_ptr<SceneManager> VeeEditor::GetSceneManager() { return m_SceneManag
 void VeeEditor::RegisterShortcuts() {
     m_ShortcutManager->RegisterShortcut(
         SHORTCUT_RELOAD,
-        {KEY_LEFT_CONTROL, KEY_R},
+        {GLFW_KEY_LEFT_CONTROL, GLFW_KEY_R},
         [this] {
             Editor::Command::ReloadCurrentSceneFromFile(this).Execute();
         }
     );
     m_ShortcutManager->RegisterShortcut(
         SHORTCUT_SAVE,
-        {KEY_SUPER, KEY_S},
+        {GLFW_KEY_LEFT_SUPER, GLFW_KEY_S},
         [this] {
             Editor::Command::SaveScene(this).Execute();
         }
     );
     m_ShortcutManager->RegisterShortcut(
         SHORTCUT_ADD_ENTITY_TO_SCENE,
-        {KEY_LEFT_CONTROL, KEY_SPACE},
+        {GLFW_KEY_LEFT_CONTROL, GLFW_KEY_SPACE},
         [this] {
             Editor::Command::CreateEntityInScene(this).Execute();
         }
     );
     m_ShortcutManager->RegisterShortcut(
         SHORTCUT_DELETE,
-        {KEY_LEFT_CONTROL, KEY_DELETE},
+        {GLFW_KEY_LEFT_CONTROL, GLFW_KEY_DELETE},
         [this] {
             Editor::Command::DeleteEntity(this).Execute();
         }

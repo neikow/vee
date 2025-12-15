@@ -5,10 +5,10 @@
 #include "../engine.h"
 #include "../entities/components_system/components/camera_component.h"
 #include "../entities/components_system/components/local_transform_component.h"
-#include "../entities/components_system/components/camera_component.h"
 #include "../entities/components_system/components/children_component.h"
 #include "../entities/components_system/components/local_to_world_component.h"
 #include "../entities/components_system/components/parent_component.h"
+#include "../entities/components_system/components/player_controller_component.h"
 #include "../entities/components_system/components/renderable_component.h"
 #include "../entities/components_system/components/velocity_component.h"
 #include "../entities/components_system/tags/active_camera_tag_component.h"
@@ -84,6 +84,20 @@ void operator>>(const YAML::Node &node, ParentComponent &c) {
     node["parent_id"] >> c.parent;
 }
 
+void operator>>(const YAML::Node &node, Key &key) {
+    key = static_cast<Key>(node.as<int>());
+}
+
+void operator>>(const YAML::Node &node, PlayerControllerComponent &c) {
+    node["movement_speed"] >> c.movementSpeed;
+    node["forward_direction"] >> c.forwardDirection;
+    c.forwardDirection = glm::normalize(c.forwardDirection);
+    node["move_forward_key"] >> c.moveForwardKey;
+    node["move_backward_key"] >> c.moveBackwardKey;
+    node["move_left_key"] >> c.moveLeftKey;
+    node["move_right_key"] >> c.moveRightKey;
+}
+
 void DeserializeComponentV0(
     const YAML::Node &componentNode,
     const EntityID entityId,
@@ -121,6 +135,10 @@ void DeserializeComponentV0(
         RenderableComponent renderable{};
         componentNode >> renderable;
         componentManager->AddComponent<RenderableComponent>(entityId, renderable);
+    } else if (typeStr == VEE_PLAYER_CONTROLLER_COMPONENT_NAME) {
+        PlayerControllerComponent playerController{};
+        componentNode >> playerController;
+        componentManager->AddComponent<PlayerControllerComponent>(entityId, playerController);
     } else {
         throw std::runtime_error("Unknown component type: " + typeStr);
     }

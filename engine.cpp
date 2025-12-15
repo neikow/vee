@@ -56,7 +56,7 @@ int main() {
             systemManager->template SetSignature<CameraSystem>(activeCameraSignature);
         });
 
-        g_Engine->LoadScene("../.editor_data/scenes/scene2.scene");
+        g_Engine->LoadScene("../.editor_data/scenes/scene1.scene");
 
         g_Engine->Initialize(WIDTH, HEIGHT, "Engine", VK_MAKE_VERSION(1, 0, 0));
 

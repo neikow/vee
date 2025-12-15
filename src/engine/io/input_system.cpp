@@ -59,42 +59,7 @@ static bool isPressed(const int action) {
 }
 
 void InputSystem::KeyCallback(GLFWwindow */*window*/, const int key, int /*scancode*/, const int action, int /*mods*/) {
-    Key mappedKey;
-    switch (key) {
-        case GLFW_KEY_Z:
-            mappedKey = KEY_Z;
-            break;
-        case GLFW_KEY_Q:
-            mappedKey = KEY_Q;
-            break;
-        case GLFW_KEY_S:
-            mappedKey = KEY_S;
-            break;
-        case GLFW_KEY_D:
-            mappedKey = KEY_D;
-            break;
-        case GLFW_KEY_LEFT_CONTROL:
-            mappedKey = KEY_LEFT_CONTROL;
-            break;
-        case GLFW_KEY_SPACE:
-            mappedKey = KEY_SPACE;
-            break;
-        case GLFW_KEY_R:
-            mappedKey = KEY_R;
-            break;
-        case GLFW_KEY_LEFT_SUPER:
-            mappedKey = KEY_SUPER;
-            break;
-        case GLFW_KEY_A:
-            mappedKey = KEY_A;
-            break;
-        case GLFW_KEY_DELETE:
-            mappedKey = KEY_DELETE;
-            break;
-        default:
-            return;
-    }
-    SetKeyState(mappedKey, isPressed(action));
+    SetKeyState(key, isPressed(action));
 }
 
 void InputSystem::MouseButtonCallback(GLFWwindow */*window*/, int button, const int action, int /*mods*/) {

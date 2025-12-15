@@ -39,7 +39,7 @@ int main() {
         g_Editor->Initialize();
 
         // TODO: Make the scene picking available at runtime to remove this line
-        g_Editor->LoadScene("../.editor_data/scenes/scene2.scene");
+        g_Editor->LoadScene("../.editor_data/scenes/scene1.scene");
 
         g_Editor->Run(WIDTH, HEIGHT);
     } catch (const std::exception &e) {

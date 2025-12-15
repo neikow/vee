@@ -15,12 +15,13 @@ constexpr auto VEE_LOCAL_TO_WORLD_COMPONENT_NAME = "LocalToWorldComponent";
 constexpr auto VEE_LOCAL_TRANSFORM_COMPONENT_NAME = "LocalTransformComponent";
 constexpr auto VEE_VELOCITY_COMPONENT_NAME = "VelocityComponent";
 constexpr auto VEE_RENDERABLE_COMPONENT_NAME = "RenderableComponent";
+constexpr auto VEE_PLAYER_CONTROLLER_COMPONENT_NAME = "PlayerControllerComponent";
 constexpr auto VEE_ACTIVE_CAMERA_TAG_COMPONENT_NAME = "ActiveCameraTagComponent";
 constexpr auto VEE_EDITOR_CAMERA_TAG_COMPONENT_NAME = "EditorCameraTagComponent";
 
 // Total number of distinct component types defined (Components + Tags).
 // This value should match the number of entries in the ComponentType enum.
-constexpr uint16_t COMPONENTS_COUNT = 11;
+constexpr uint16_t COMPONENTS_COUNT = 12;
 
 namespace Entities {
     using EntityID = std::uint32_t;

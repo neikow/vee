@@ -34,31 +34,9 @@ int main() {
 
     bool hasError = false;
     try {
-        // TODO : move this initialization inside the Editor class
-        g_Engine->RegisterSystems(
-            [&g_Renderer, &g_Editor](
-        const auto &,
-        const auto &systemManager,
-        const auto &componentManager
-    ) {
-                componentManager->template RegisterComponent<EditorCameraTagComponent>("EditorCameraTagComponent");
-
-                Signature editorCameraSignature;
-                editorCameraSignature.set(ComponentTypeHelper<CameraComponent>::ID);
-                editorCameraSignature.set(ComponentTypeHelper<LocalTransformComponent>::ID);
-                editorCameraSignature.set(ComponentTypeHelper<EditorCameraTagComponent>::ID);
-                systemManager->template RegisterSystem<EditorCameraSystem>(
-                    std::make_shared<EditorCameraSystem>(
-                        g_Renderer,
-                        componentManager,
-                        g_Editor.get()
-                    )
-                );
-                systemManager->template SetSignature<EditorCameraSystem>(editorCameraSignature);
-            }
-        );
-
         Logger::Info("Initializing Editor...");
+
+        g_Editor->Initialize();
 
         // TODO: Make the scene picking available at runtime to remove this line
         g_Editor->LoadScene("../.editor_data/scenes/scene2.scene");

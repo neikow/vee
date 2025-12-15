@@ -1,10 +1,8 @@
 #ifndef VEE_SCENE_HIERARCHY_H
 #define VEE_SCENE_HIERARCHY_H
-#include "../editor.h"
-#include "../../engine/entities/components_system/components/children_component.h"
-#include "../../engine/entities/components_system/components/parent_component.h"
-#include "../../engine/scenes/scene.h"
-#include "../../engine/utils/strings.h"
+#include "../../editor.h"
+#include "../../../engine/entities/components_system/components/children_component.h"
+#include "../../../engine/scenes/scene.h"
 
 namespace Editor::UI {
     class SceneHierarchy {

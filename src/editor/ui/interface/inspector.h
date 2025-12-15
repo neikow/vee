@@ -1,6 +1,6 @@
 #ifndef VEE_INSPECTOR_H
 #define VEE_INSPECTOR_H
-#include "../editor.h"
+#include "../../editor.h"
 
 namespace Editor::UI {
     class Inspector {

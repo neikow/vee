@@ -86,7 +86,7 @@ FILE(GLOB_RECURSE EXTERNAL_SOURCE_FILES external/stb/*.cpp)
 SET(EXTERNAL_DIRS external/stb)
 
 add_executable(${ENGINE_EXEC} engine.cpp ${ENGINE_SOURCE_FILES} ${EXTERNAL_SOURCE_FILES})
-add_executable(${EDITOR_EXEC} VeeEditor.cpp ${ENGINE_SOURCE_FILES} ${EDITOR_SOURCE_FILES} ${EXTERNAL_SOURCE_FILES})
+add_executable(${EDITOR_EXEC} editor.cpp ${ENGINE_SOURCE_FILES} ${EDITOR_SOURCE_FILES} ${EXTERNAL_SOURCE_FILES})
 
 # ----------------------------------------------------
 # 5. Link Dependencies

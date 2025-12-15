@@ -1,14 +1,14 @@
 #include "inspector.h"
 
-#include "../../engine/entities/components_system/components/camera_component.h"
-#include "../../engine/entities/components_system/components/children_component.h"
-#include "../../engine/entities/components_system/components/local_to_world_component.h"
-#include "../../engine/entities/components_system/components/local_transform_component.h"
-#include "../../engine/entities/components_system/components/parent_component.h"
-#include "../../engine/entities/components_system/components/renderable_component.h"
-#include "../../engine/entities/components_system/components/velocity_component.h"
-#include "../../engine/entities/components_system/tags/active_camera_tag_component.h"
-#include "../../engine/utils/entities/hierarchy.h"
+#include "../../../engine/entities/components_system/components/camera_component.h"
+#include "../../../engine/entities/components_system/components/children_component.h"
+#include "../../../engine/entities/components_system/components/local_to_world_component.h"
+#include "../../../engine/entities/components_system/components/local_transform_component.h"
+#include "../../../engine/entities/components_system/components/parent_component.h"
+#include "../../../engine/entities/components_system/components/renderable_component.h"
+#include "../../../engine/entities/components_system/components/velocity_component.h"
+#include "../../../engine/entities/components_system/tags/active_camera_tag_component.h"
+#include "../../../engine/utils/entities/hierarchy.h"
 
 void SceneNameInput(const std::shared_ptr<Scene> &scene) {
     const auto currentSceneName = scene->GetName();

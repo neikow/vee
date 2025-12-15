@@ -1,7 +1,7 @@
 #ifndef VEE_CONSOLE_H
 #define VEE_CONSOLE_H
 #include "imgui.h"
-#include "../../engine/logging/logger.h"
+#include "../../../engine/logging/logger.h"
 
 ImVec4 GetLogLevelColor(LogLevel level);
 

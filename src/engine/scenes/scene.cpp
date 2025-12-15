@@ -12,6 +12,7 @@
 #include "../entities/components_system/components/parent_component.h"
 #include "../entities/components_system/components/children_component.h"
 #include "../entities/components_system/components/local_to_world_component.h"
+#include "../entities/components_system/components/physics_settings_component.h"
 #include "../entities/system/movement_system.h"
 #include "../entities/system/transform_system.h"
 
@@ -36,6 +37,10 @@ bool Scene::DestroyEntity(const EntityID entity) const {
     m_SystemManager->RemoveEntity(entity);
     return true;
 }
+
+void Scene::SetSceneEntity(const EntityID entity) { m_SceneEntity = entity; }
+
+EntityID Scene::GetSceneEntity() const { return m_SceneEntity; }
 
 void Scene::RegisterInternalSystems() {
     Signature movementSignature;
@@ -69,6 +74,7 @@ void Scene::RegisterInternalSystems() {
 
 void Scene::RegisterInternalComponents() const {
     m_ComponentManager->RegisterComponent<InternalTagComponent>(VEE_INTERNAL_COMPONENT_NAME);
+    m_ComponentManager->RegisterComponent<PhysicsSettingsComponent>(VEE_PHYSICS_SETTINGS_COMPONENT_NAME);
     m_ComponentManager->RegisterComponent<ParentComponent>(VEE_PARENT_COMPONENT_NAME);
     m_ComponentManager->RegisterComponent<ChildrenComponent>(VEE_CHILDREN_COMPONENT_NAME);
     m_ComponentManager->RegisterComponent<LocalTransformComponent>(VEE_LOCAL_TRANSFORM_COMPONENT_NAME);

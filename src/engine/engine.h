@@ -37,6 +37,8 @@ public:
 
     void Shutdown() const;
 
+    void CreateInternalEntities() const;
+
     void LoadScene(const std::string &scenePath);
 
     [[nodiscard]] bool Paused() const;

@@ -21,6 +21,8 @@ class Scene {
     std::string m_Name = "Untitled Scene";
     std::string m_Path;
 
+    EntityID m_SceneEntity = NULL_ENTITY;
+
     bool m_IsDirty = false;
 
 public:
@@ -91,6 +93,10 @@ public:
      * Returns true if the entity was successfully destroyed, false otherwise.
      */
     [[nodiscard]] bool DestroyEntity(EntityID entity) const;
+
+    void SetSceneEntity(EntityID entity);
+
+    [[nodiscard]] EntityID GetSceneEntity() const;
 
 private:
     void RegisterInternalSystems();

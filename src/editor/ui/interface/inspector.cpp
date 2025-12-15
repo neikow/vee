@@ -5,9 +5,11 @@
 #include "../../../engine/entities/components_system/components/local_to_world_component.h"
 #include "../../../engine/entities/components_system/components/local_transform_component.h"
 #include "../../../engine/entities/components_system/components/parent_component.h"
+#include "../../../engine/entities/components_system/components/physics_settings_component.h"
 #include "../../../engine/entities/components_system/components/renderable_component.h"
 #include "../../../engine/entities/components_system/components/velocity_component.h"
 #include "../../../engine/entities/components_system/tags/active_camera_tag_component.h"
+#include "../../../engine/logging/logger.h"
 #include "../../../engine/utils/entities/hierarchy.h"
 
 void SceneNameInput(const std::shared_ptr<Scene> &scene) {
@@ -255,6 +257,39 @@ void Editor::UI::Inspector::DrawEntityInspector(
                     }
                     ImGui::EndCombo();
                 }
+            }
+        } else if (componentTypeID == ComponentTypeHelper<PhysicsSettingsComponent>::ID) {
+            if (ImGui::CollapsingHeader("Physics Settings", flags)) {
+                auto &physicsSettings = componentManager->GetComponent<PhysicsSettingsComponent>(entity);
+
+                ImGui::DragFloat(
+                    "Gravity Acceleration",
+                    &physicsSettings.gravityAcceleration,
+                    0.1f,
+                    0,
+                    100.0f
+                );
+
+                static glm::vec3 tempGravityDir = physicsSettings.gravityDirection;
+
+                ImGui::DragFloat3(
+                    "Gravity Direction",
+                    &tempGravityDir.x,
+                    0.1f,
+                    -1.0f,
+                    1.0f
+                );
+
+                if (ImGui::IsItemDeactivatedAfterEdit()) {
+                    physicsSettings.gravityDirection = glm::normalize(tempGravityDir);
+                }
+
+                ImGui::DragInt(
+                    "Solver Iterations",
+                    &physicsSettings.solverIterations,
+                    1,
+                    1, 100
+                );
             }
         }
     }

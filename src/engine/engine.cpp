@@ -1,5 +1,6 @@
 #include "engine.h"
 
+#include "entities/components_system/components/physics_settings_component.h"
 #include "entities/system/movement_system.h"
 #include "serialization/scene_serializer.h"
 
@@ -25,9 +26,18 @@ void Engine::Shutdown() const {
     m_Renderer->Cleanup();
 }
 
+void Engine::CreateInternalEntities() const {
+    const auto sceneEntity = m_Scene->GetEntityManager()->CreateEntity("Scene");
+    m_Scene->SetSceneEntity(sceneEntity);
+    const auto componentManager = m_Scene->GetComponentManager();
+    componentManager->AddComponent<InternalTagComponent>(sceneEntity, InternalTagComponent{});
+    componentManager->AddComponent<PhysicsSettingsComponent>(sceneEntity, PhysicsSettingsComponent{});
+}
+
 void Engine::LoadScene(const std::string &scenePath) {
     if (m_Renderer->Initialized()) m_Renderer->Reset();
     m_Scene = SceneSerializer::LoadScene(scenePath, m_Renderer, m_SystemRegistrations);
+    CreateInternalEntities();
 }
 
 bool Engine::Paused() const {

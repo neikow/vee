@@ -7,6 +7,7 @@
 // to ensure consistent ordering and identification.
 // Update COMPONENTS_COUNT when adding new component types.
 constexpr auto VEE_INTERNAL_COMPONENT_NAME = "InternalTagComponent";
+constexpr auto VEE_PHYSICS_SETTINGS_COMPONENT_NAME = "PhysicsSettings";
 constexpr auto VEE_PARENT_COMPONENT_NAME = "ParentComponent";
 constexpr auto VEE_CHILDREN_COMPONENT_NAME = "ChildrenComponent";
 constexpr auto VEE_CAMERA_COMPONENT_NAME = "CameraComponent";
@@ -19,7 +20,7 @@ constexpr auto VEE_EDITOR_CAMERA_TAG_COMPONENT_NAME = "EditorCameraTagComponent"
 
 // Total number of distinct component types defined (Components + Tags).
 // This value should match the number of entries in the ComponentType enum.
-constexpr uint16_t COMPONENTS_COUNT = 10;
+constexpr uint16_t COMPONENTS_COUNT = 11;
 
 namespace Entities {
     using EntityID = std::uint32_t;

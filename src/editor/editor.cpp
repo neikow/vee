@@ -78,8 +78,8 @@ VeeEditor::VeeEditor(const std::shared_ptr<Engine> &engine) : m_Engine(engine) {
     m_ShortcutManager = std::make_unique<ShortcutManager>();
 }
 
-void VeeEditor::Run(const int width, const int height) {
-    m_Engine->Initialize(width, height, "Editor", VK_MAKE_VERSION(1, 0, 0));
+void VeeEditor::Run() {
+    m_Engine->Initialize("Editor", VK_MAKE_VERSION(1, 0, 0));
 
     auto lastTime = std::chrono::high_resolution_clock::now();
 
@@ -87,7 +87,7 @@ void VeeEditor::Run(const int width, const int height) {
         m_Engine->GetRenderer()
     );
 
-    while (!renderer->ShouldClose()) {
+    while (!renderer->GetWindow()->ShouldClose()) {
         glfwPollEvents();
         if (m_State.isWaitingForEntitySelection && !renderer->IsPickingRequestPending()) {
             m_State.selectedEntity = renderer->GetLastPickedID();

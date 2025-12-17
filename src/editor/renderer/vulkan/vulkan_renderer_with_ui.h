@@ -39,9 +39,12 @@ namespace Vulkan {
         VkPipeline m_PickingPipeline = VK_NULL_HANDLE;
 
     public:
-        RendererWithUi() = default;
+        explicit RendererWithUi(const std::shared_ptr<Window> &window);
 
-        void Initialize(int width, int height, const std::string &appName, uint32_t version) override;
+        void Initialize(
+            const std::string &appName,
+            uint32_t version
+        ) override;
 
         float GetAspectRatio() override;
 
@@ -60,6 +63,8 @@ namespace Vulkan {
         void UpdateViewportSize(uint32_t width, uint32_t height);
 
         Entities::EntityID GetLastPickedID() const;
+
+        std::shared_ptr<Window> GetWindow();
 
     private:
         void InitImgui();

@@ -3,6 +3,7 @@
 #include <ranges>
 
 #include "../../renderer/vulkan/vulkan_renderer.h"
+#include "../../renderer/vulkan/vulkan_device.h"
 
 #include "stb_image.h"
 
@@ -53,8 +54,8 @@ namespace Vulkan {
             const auto renderer = dynamic_cast<Renderer *>(m_Renderer);
 
             if (info.image != VK_NULL_HANDLE) {
-                vkDestroyImageView(renderer->m_Device, info.imageView, nullptr);
-                vmaDestroyImage(renderer->m_Allocator, info.image, info.allocation);
+                renderer->GetDevice()->DestroyImageView(info.imageView);
+                renderer->GetDevice()->DestroyImage(info.image, info.allocation);
                 info.image = VK_NULL_HANDLE;
             }
 
@@ -80,8 +81,8 @@ namespace Vulkan {
         }
 
         if (info.image != VK_NULL_HANDLE) {
-            vkDestroyImageView(renderer->m_Device, info.imageView, nullptr);
-            vmaDestroyImage(renderer->m_Allocator, info.image, info.allocation);
+            renderer->GetDevice()->DestroyImageView(info.imageView);
+            renderer->GetDevice()->DestroyImage(info.image, info.allocation);
             info.image = VK_NULL_HANDLE;
         }
 
@@ -100,9 +101,9 @@ namespace Vulkan {
         );
 
         void *data;
-        vmaMapMemory(renderer->m_Allocator, stagingAlloc, &data);
+        renderer->GetDevice()->MapMemory(stagingAlloc, &data);
         memcpy(data, info.pixels, info.imageSize);
-        vmaUnmapMemory(renderer->m_Allocator, stagingAlloc);
+        renderer->GetDevice()->UnmapMemory(stagingAlloc);
 
         renderer->CreateImage(
             info.width,
@@ -131,8 +132,7 @@ namespace Vulkan {
             info.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT
         );
 
-        vmaDestroyBuffer(renderer->m_Allocator, stagingBuffer, stagingAlloc);
-
+        renderer->GetDevice()->DestroyBuffer(stagingBuffer, stagingAlloc);
         renderer->UpdateTextureDescriptor(textureId);
 
         stbi_image_free(info.pixels);

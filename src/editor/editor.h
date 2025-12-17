@@ -162,11 +162,8 @@ public:
     std::shared_ptr<SceneManager> GetSceneManager();
 
     /** Main loop of the editor application.
-     *
-     * @param width Initial width of the application window.
-     * @param height Initial height of the application window.
      */
-    void Run(int width, int height);
+    void Run();
 
     /** Initializes the editor, setting up UI, shortcuts, and internal systems.
      */

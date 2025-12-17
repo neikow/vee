@@ -5,18 +5,21 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 #include "../../../engine/renderer/vulkan/utils.h"
+#include "../../../engine/renderer/vulkan/vertex_utils.h"
+#include "../../../engine/renderer/vulkan/vulkan_device.h"
 #include "../../../engine/shaders/compile.h"
 
 
 void Vulkan::RendererWithUi::Initialize(
-    const int width,
-    const int height,
     const std::string &appName,
     const uint32_t version
 ) {
-    Renderer::Initialize(width, height, appName, version);
+    Renderer::Initialize(appName, version);
     InitImgui();
     CreateViewportResources();
+}
+
+Vulkan::RendererWithUi::RendererWithUi(const std::shared_ptr<Window> &window) : Renderer(window), m_PickingRequest() {
 }
 
 float Vulkan::RendererWithUi::GetAspectRatio() {
@@ -27,17 +30,13 @@ void Vulkan::RendererWithUi::Cleanup() {
     CleanupViewportResources();
 
     CleanupPickingResources();
-    vkDestroyRenderPass(m_Device, m_PickingRenderPass, nullptr);
-    vkDestroyPipeline(m_Device, m_PickingPipeline, nullptr);
+    m_Device->DestroyRenderPass(m_PickingRenderPass);
+    m_Device->DestroyPipeline(m_PickingPipeline);
 
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
 
-    vkDestroyDescriptorPool(
-        GetDevice(),
-        m_ImguiDescriptorPool,
-        nullptr
-    );
+    m_Device->DestroyDescriptorPool(m_ImguiDescriptorPool);
 
     Renderer::Cleanup();
 
@@ -59,7 +58,7 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
         );
     }
 
-    const VkCommandBuffer cmd = BeginSingleTimeCommands(m_GraphicsCommandPool);
+    const VkCommandBuffer cmd = BeginSingleTimeCommands(m_Device->GetGraphicsCommandPool());
 
     VkRenderPassBeginInfo pickingPassInfo{};
     pickingPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -148,7 +147,12 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &cmd;
 
-    vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueSubmit(
+        m_Device->GetGraphicsQueue(),
+        1,
+        &submitInfo,
+        VK_NULL_HANDLE
+    );
 
     m_PickingRequest.isPending = true;
     m_PickingRequest.frameSubmitted = m_TotalFramesRendered;
@@ -165,9 +169,7 @@ void Vulkan::RendererWithUi::UpdatePickingResult() {
         return;
     }
 
-    VmaAllocationInfo allocInfo;
-    vmaGetAllocationInfo(m_Allocator, m_PickingRequest.allocation, &allocInfo);
-
+    const auto allocInfo = m_Device->GetAllocationInfo(m_PickingAllocation);
     if (allocInfo.pMappedData) {
         std::memcpy(&m_LastPickedEntityID, allocInfo.pMappedData, sizeof(uint32_t));
     }
@@ -205,23 +207,20 @@ void Vulkan::RendererWithUi::InitImgui() {
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     poolInfo.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
-    poolInfo.poolSizeCount = (uint32_t) IM_ARRAYSIZE(pool_sizes);
+    poolInfo.poolSizeCount = static_cast<uint32_t>(IM_ARRAYSIZE(pool_sizes));
     poolInfo.pPoolSizes = pool_sizes;
 
-    if (vkCreateDescriptorPool(GetDevice(), &poolInfo, nullptr, &m_ImguiDescriptorPool) !=
-        VK_SUCCESS) {
-        throw std::runtime_error("failed to create ImGui descriptor pool!");
-    }
+    m_ImguiDescriptorPool = m_Device->CreateDescriptorPool(poolInfo);
 
-    ImGui_ImplGlfw_InitForVulkan(m_Window, true);
+    ImGui_ImplGlfw_InitForVulkan(m_Window->GetWindow(), true);
 
     ImGui_ImplVulkan_InitInfo initInfo = {};
-    initInfo.Instance = m_Instance;
-    initInfo.PhysicalDevice = m_PhysicalDevice;
+    initInfo.Instance = m_Device->GetInstance();
+    initInfo.PhysicalDevice = m_Device->GetPhysicalDevice();
     initInfo.Allocator = nullptr;
-    initInfo.Device = m_Device;
-    initInfo.Queue = m_GraphicsQueue;
-    initInfo.QueueFamily = FindQueueFamilies(m_PhysicalDevice).graphicsFamily.value();
+    initInfo.Device = m_Device->GetLogicalDevice();
+    initInfo.Queue = m_Device->GetGraphicsQueue();
+    initInfo.QueueFamily = m_Device->FindQueueFamilies(m_Device->GetPhysicalDevice()).graphicsFamily.value();
     initInfo.DescriptorPool = m_ImguiDescriptorPool;
     initInfo.ImageCount = m_SwapChainImages.size();
     initInfo.MinImageCount = MAX_FRAMES_IN_FLIGHT;
@@ -266,21 +265,19 @@ void Vulkan::RendererWithUi::CreatePickingResources() {
         .layers = 1
     };
 
-    if (vkCreateFramebuffer(m_Device, &framebufferCreateInfo, nullptr, &m_PickingFramebuffer) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create picking framebuffer!");
-    }
+    m_PickingFramebuffer = m_Device->CreateFramebuffer(framebufferCreateInfo);
 }
 
 void Vulkan::RendererWithUi::CleanupPickingResources() {
     if (m_PickingImageView) {
-        vkDestroyImageView(m_Device, m_PickingImageView, nullptr);
+        m_Device->DestroyImageView(m_PickingImageView);
         m_PickingImageView = nullptr;
     }
     if (m_PickingRequest.buffer) {
-        vmaDestroyBuffer(m_Allocator, m_PickingRequest.buffer, m_PickingRequest.allocation);
+        m_Device->DestroyBuffer(m_PickingRequest.buffer, m_PickingRequest.allocation);
     }
-    vmaDestroyImage(m_Allocator, m_PickingImage, m_PickingAllocation);
-    vkDestroyFramebuffer(m_Device, m_PickingFramebuffer, nullptr);
+    m_Device->DestroyImage(m_PickingImage, m_PickingAllocation);
+    m_Device->DestroyFramebuffer(m_PickingFramebuffer);
 }
 
 void Vulkan::RendererWithUi::PrepareForRendering() {
@@ -313,7 +310,7 @@ void Vulkan::RendererWithUi::CreatePickingRenderPass() {
     };
 
     const VkAttachmentDescription depthAttachment{
-        .format = Utils::FindDepthFormat(m_PhysicalDevice),
+        .format = Utils::FindDepthFormat(m_Device->GetPhysicalDevice()),
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -346,9 +343,7 @@ void Vulkan::RendererWithUi::CreatePickingRenderPass() {
         .pDependencies = nullptr
     };
 
-    if (vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_PickingRenderPass) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create picking render pass!");
-    }
+    m_PickingRenderPass = m_Device->CreateRenderPass(renderPassInfo);
 }
 
 void Vulkan::RendererWithUi::CreateViewportResources() {
@@ -381,9 +376,7 @@ void Vulkan::RendererWithUi::CreateViewportResources() {
     framebufferInfo.height = m_ViewportExtent.height;
     framebufferInfo.layers = 1;
 
-    if (vkCreateFramebuffer(m_Device, &framebufferInfo, nullptr, &m_ViewportFramebuffer) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create viewport framebuffer!");
-    }
+    m_ViewportFramebuffer = m_Device->CreateFramebuffer(framebufferInfo);
 
     m_ViewportDescriptorSet = ImGui_ImplVulkan_AddTexture(
         m_TextureSampler,
@@ -393,11 +386,11 @@ void Vulkan::RendererWithUi::CreateViewportResources() {
 }
 
 void Vulkan::RendererWithUi::CleanupViewportResources() const {
-    vkDeviceWaitIdle(m_Device);
+    WaitIdle();
 
-    vkDestroyImageView(m_Device, m_ViewportImageView, nullptr);
-    vmaDestroyImage(m_Allocator, m_ViewportImage, m_ViewportAllocation);
-    vkDestroyFramebuffer(m_Device, m_ViewportFramebuffer, nullptr);
+    m_Device->DestroyImageView(m_ViewportImageView);
+    m_Device->DestroyImage(m_ViewportImage, m_ViewportAllocation);
+    m_Device->DestroyFramebuffer(m_ViewportFramebuffer);
 
     ImGui_ImplVulkan_RemoveTexture(m_ViewportDescriptorSet);
 }
@@ -557,19 +550,10 @@ void Vulkan::RendererWithUi::CreatePickingPipeline() {
         .basePipelineIndex = -1,
     };
 
-    if (vkCreateGraphicsPipelines(
-            m_Device,
-            VK_NULL_HANDLE,
-            1,
-            &pipelineCreateInfo,
-            nullptr,
-            &m_PickingPipeline
-        ) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create graphics pipeline!");
-    }
+    m_PickingPipeline = m_Device->CreatePipeline(pipelineCreateInfo);
 
-    vkDestroyShaderModule(m_Device, fragShaderModule, nullptr);
-    vkDestroyShaderModule(m_Device, vertShaderModule, nullptr);
+    m_Device->DestroyShaderModule(fragShaderModule);
+    m_Device->DestroyShaderModule(vertShaderModule);
 }
 
 void Vulkan::RendererWithUi::RenderToScreen(const VkCommandBuffer &cmd) {
@@ -627,7 +611,7 @@ void Vulkan::RendererWithUi::UpdateViewportSize(const uint32_t width, const uint
         m_ViewportExtent.width = width;
         m_ViewportExtent.height = height;
 
-        vkDeviceWaitIdle(m_Device);
+        WaitIdle();
 
         CleanupViewportResources();
         CreateViewportResources();
@@ -636,6 +620,10 @@ void Vulkan::RendererWithUi::UpdateViewportSize(const uint32_t width, const uint
 
 Entities::EntityID Vulkan::RendererWithUi::GetLastPickedID() const {
     return m_LastPickedEntityID;
+}
+
+std::shared_ptr<Window> Vulkan::RendererWithUi::GetWindow() {
+    return m_Window;
 }
 
 VkDescriptorSet Vulkan::RendererWithUi::GetViewportDescriptorSet() const {

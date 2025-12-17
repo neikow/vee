@@ -41,13 +41,16 @@ public:
         return m_TextureManager;
     }
 
-    virtual void Initialize(int width, int height, const std::string &appName, uint32_t version) = 0;
+    virtual void Initialize(
+        const std::string &appName,
+        uint32_t version
+    ) = 0;
 
     [[nodiscard]] bool Initialized() const {
         return m_Initialized;
     }
 
-    virtual MemoryUsage GetMemoryUsage() const = 0;
+    virtual MemoryUsage GetMemoryUsage() = 0;
 
     virtual void Draw() = 0;
 
@@ -66,9 +69,7 @@ public:
 
     virtual void Reset() = 0;
 
-    virtual bool ShouldClose() = 0;
-
-    virtual void WaitIdle() = 0;
+    virtual void WaitIdle() const = 0;
 
     virtual float GetAspectRatio() = 0;
 

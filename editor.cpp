@@ -23,7 +23,9 @@ constexpr uint32_t WIDTH = 1920;
 constexpr uint32_t HEIGHT = 1080;
 
 int main() {
-    const auto g_Renderer = std::make_shared<Vulkan::RendererWithUi>();
+    const auto g_Window = std::make_shared<Window>(WIDTH, HEIGHT, "Vee Editor");
+
+    const auto g_Renderer = std::make_shared<Vulkan::RendererWithUi>(g_Window);
 
     const auto g_Engine = std::make_shared<Engine>(g_Renderer);
 
@@ -38,7 +40,7 @@ int main() {
         // TODO: Make the scene picking available at runtime to remove this line
         g_Editor->LoadScene("../.editor_data/scenes/scene1.scene");
 
-        g_Editor->Run(WIDTH, HEIGHT);
+        g_Editor->Run();
     } catch (const std::exception &e) {
         std::cerr << e.what() << std::endl;
         hasError = true;

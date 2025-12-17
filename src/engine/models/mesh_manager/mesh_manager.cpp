@@ -6,17 +6,21 @@ LoadModelResult MeshManager::LoadModelData(
     const tinyobj::attrib_t &attrib,
     const std::vector<tinyobj::shape_t> &shapes
 ) {
-    const auto modelId = static_cast<ModelId>(m_Vertices.size());
-    std::vector<uint32_t> indices;
-    std::vector<Vertex> vertices;
+    const auto modelId = static_cast<ModelId>(m_MeshInfos.size());
     std::unordered_map<Vertex, uint32_t> uniqueVertices;
+
+    auto startVertex = static_cast<uint32_t>(m_GlobalVertices.size());
+    auto startIndex = static_cast<uint32_t>(m_GlobalIndices.size());
+
+    uint32_t verticesLoaded = 0;
+    uint32_t indicesLoaded = 0;
 
     for (const auto &shape: shapes) {
         for (const auto &index: shape.mesh.indices) {
             Vertex vertex{};
 
             if (index.vertex_index >= 0) {
-                size_t vi = static_cast<size_t>(index.vertex_index);
+                auto vi = static_cast<size_t>(index.vertex_index);
                 vertex.pos = {
                     attrib.vertices[3 * vi + 0],
                     attrib.vertices[3 * vi + 1],
@@ -27,7 +31,7 @@ LoadModelResult MeshManager::LoadModelData(
             }
 
             if (index.texcoord_index >= 0) {
-                size_t ti = static_cast<size_t>(index.texcoord_index);
+                auto ti = static_cast<size_t>(index.texcoord_index);
                 vertex.texCoord = {
                     attrib.texcoords[2 * ti + 0],
                     1.0f - attrib.texcoords[2 * ti + 1]
@@ -40,23 +44,27 @@ LoadModelResult MeshManager::LoadModelData(
 
             if (!uniqueVertices.contains(vertex)) {
                 // Use the current model's vertex count, not the global model count.
-                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-                vertices.push_back(vertex);
+                uniqueVertices[vertex] = verticesLoaded;
+                m_GlobalVertices.push_back(vertex);
+                verticesLoaded++;
             }
 
-            indices.push_back(uniqueVertices[vertex]);
+            m_GlobalIndices.push_back(uniqueVertices[vertex]);
+            indicesLoaded++;
         }
     }
 
-    m_Vertices.push_back(std::move(vertices));
-    m_Indices.push_back(std::move(indices));
-
     LoadModelResult result{};
     result.modelId = modelId;
-    result.indexCount = static_cast<uint32_t>(m_Indices.back().size());
-    result.vertexCount = static_cast<uint32_t>(m_Vertices.back().size());
+    result.indexOffset = startIndex;
+    result.vertexOffset = startVertex;
+    result.indexCount = indicesLoaded;
+    result.vertexCount = verticesLoaded;
 
     return result;
+}
+
+MeshManager::MeshManager(AbstractRenderer *renderer) : m_Renderer(renderer) {
 }
 
 ModelId MeshManager::LoadMesh(const std::string &meshPath) {
@@ -112,8 +120,8 @@ void MeshManager::DumpLoadedMeshes(YAML::Emitter &out) const {
 void MeshManager::Reset() {
     m_CurrentVertexOffset = 0;
     m_CurrentIndexOffset = 0;
-    m_Vertices.clear();
-    m_Indices.clear();
+    m_GlobalVertices.clear();
+    m_GlobalIndices.clear();
     m_MeshInfos.clear();
     m_ModelIdToMeshIndex.clear();
 }

@@ -15,7 +15,7 @@
 
 namespace Vulkan {
     constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-
+    constexpr uint64_t MAX_GEOMETRY_BUFFER_SIZE = 256 * 1024 * 1024; // 256 MB
     struct DrawCall {
         glm::mat4 worldMatrix;
         Entities::EntityID entityId;
@@ -91,6 +91,8 @@ namespace Vulkan {
 
         uint32_t m_CurrentFrameIndex = 0;
         uint32_t m_ImageIndex = 0;
+        uint64_t m_CurrentVertexBufferSize = 0;
+        uint64_t m_CurrentIndexBufferSize = 0;
 
     protected:
         VmaAllocator m_Allocator = VK_NULL_HANDLE;
@@ -160,6 +162,9 @@ namespace Vulkan {
         void CreateUniformBuffers();
 
         void CreateIndexBuffer();
+
+        template<typename T>
+        void UploadToBuffer(const VkBuffer &targetBuffer, const std::vector<T> &data, size_t size) const;
 
         void CreateVertexBuffer();
 

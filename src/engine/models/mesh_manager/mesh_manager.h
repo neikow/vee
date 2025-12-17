@@ -20,14 +20,16 @@ struct LoadModelResult {
     ModelId modelId;
     uint32_t indexCount;
     uint32_t vertexCount;
+    uint32_t indexOffset;
+    uint32_t vertexOffset;
 };
 
 
 class MeshManager {
     AbstractRenderer *m_Renderer;
     std::map<ModelId, std::uint32_t> m_ModelIdToMeshIndex;
-    std::vector<std::vector<Vertex> > m_Vertices;
-    std::vector<std::vector<uint32_t> > m_Indices;
+    std::vector<Vertex> m_GlobalVertices;
+    std::vector<uint32_t> m_GlobalIndices;
     std::vector<MeshInfo> m_MeshInfos;
 
     uint32_t m_CurrentVertexOffset = 0;
@@ -39,19 +41,23 @@ class MeshManager {
     );
 
 public:
-    explicit MeshManager(AbstractRenderer *renderer) : m_Renderer(renderer) {
-    }
+    explicit MeshManager(AbstractRenderer *renderer);
 
     [[nodiscard]] std::vector<Vertex> GetMeshVerticesArray() const {
-        return Utils::Vectors::FlattenCopy(m_Vertices);
+        return m_GlobalVertices;
     }
 
     [[nodiscard]] std::vector<uint32_t> GetMeshIndicesArray() const {
-        return Utils::Vectors::FlattenCopy(m_Indices);
+        return m_GlobalIndices;
     }
 
     [[nodiscard]] MeshInfo GetMeshInfo(const ModelId modelId) const {
-        return m_MeshInfos[m_ModelIdToMeshIndex.at(modelId)];
+        try {
+            const auto meshIndex = m_ModelIdToMeshIndex.at(modelId);
+            return m_MeshInfos[meshIndex];
+        } catch (const std::out_of_range &) {
+            throw std::runtime_error("MeshManager: Invalid ModelId requested: " + std::to_string(modelId));
+        }
     }
 
     ModelId LoadMesh(const std::string &meshPath);

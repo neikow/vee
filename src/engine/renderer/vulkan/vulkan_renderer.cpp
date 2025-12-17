@@ -127,21 +127,21 @@ namespace Vulkan {
     }
 
     void Renderer::UpdateGeometryBuffers() {
-        VkBuffer oldVertexBuffer = m_VertexBuffer;
-        VmaAllocation oldVertexAlloc = m_VertexAllocation;
-        VkBuffer oldIndexBuffer = m_IndexBuffer;
-        VmaAllocation oldIndexAlloc = m_IndexAllocation;
+        vkDeviceWaitIdle(m_Device);
+
+        const VkBuffer oldVertexBuffer = m_VertexBuffer;
+        const VmaAllocation oldVertexAlloc = m_VertexAllocation;
+        const VkBuffer oldIndexBuffer = m_IndexBuffer;
+        const VmaAllocation oldIndexAlloc = m_IndexAllocation;
+
+        m_VertexBuffer = VK_NULL_HANDLE;
+        m_IndexBuffer = VK_NULL_HANDLE;
 
         CreateVertexBuffer();
         CreateIndexBuffer();
 
-        m_ResourceDeletionQueue->Enqueue({
-            [this, oldVertexBuffer, oldVertexAlloc, oldIndexBuffer, oldIndexAlloc] {
-                vmaDestroyBuffer(m_Allocator, oldVertexBuffer, oldVertexAlloc);
-                vmaDestroyBuffer(m_Allocator, oldIndexBuffer, oldIndexAlloc);
-            },
-            m_TotalFramesRendered
-        });
+        vmaDestroyBuffer(m_Allocator, oldVertexBuffer, oldVertexAlloc);
+        vmaDestroyBuffer(m_Allocator, oldIndexBuffer, oldIndexAlloc);
     }
 
     void Renderer::DumpVmaStats() const {
@@ -455,51 +455,41 @@ namespace Vulkan {
 
     void Renderer::CreateIndexBuffer() {
         const auto indices = GetMeshManager()->GetMeshIndicesArray();
-        const VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+        const VkDeviceSize requiredSize = sizeof(indices[0]) * indices.size();
 
-        VkBuffer stagingBuffer;
-        VmaAllocation stagingAlloc;
+        if (m_IndexBuffer == VK_NULL_HANDLE || requiredSize > m_CurrentIndexBufferSize) {
+            if (m_IndexBuffer != VK_NULL_HANDLE) {
+                vmaDestroyBuffer(m_Allocator, m_IndexBuffer, m_IndexAllocation);
+            }
 
-        CreateBuffer(
-            bufferSize,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
-            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-            stagingBuffer, stagingAlloc,
-            "Staging Index Buffer"
-        );
+            m_CurrentIndexBufferSize = std::max(MAX_GEOMETRY_BUFFER_SIZE, requiredSize);
 
-        void *data;
-        vmaMapMemory(m_Allocator, stagingAlloc, &data);
-        std::memcpy(data, indices.data(), bufferSize);
-        vmaUnmapMemory(m_Allocator, stagingAlloc);
+            CreateBuffer(
+                m_CurrentIndexBufferSize,
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+                0,
+                m_IndexBuffer, m_IndexAllocation,
+                "Global Index Buffer"
+            );
+        }
 
-        CreateBuffer(
-            bufferSize,
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-            0,
-            m_IndexBuffer, m_IndexAllocation,
-            "Index Buffer"
-        );
-
-        CopyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
-
-        m_ResourceDeletionQueue->Enqueue({
-            [this, stagingBuffer, stagingAlloc] { vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAlloc); },
-            m_TotalFramesRendered
-        });
+        UploadToBuffer(m_IndexBuffer, indices, requiredSize);
     }
 
-    void Renderer::CreateVertexBuffer() {
-        const auto vertices = GetMeshManager()->GetMeshVerticesArray();
-        const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+    template<typename T>
+    void Renderer::UploadToBuffer(
+        const VkBuffer &targetBuffer,
+        const std::vector<T> &data,
+        const size_t size
+    ) const {
+        if (data.empty()) return;
 
         VkBuffer stagingBuffer;
         VmaAllocation stagingAllocation;
 
         CreateBuffer(
-            bufferSize,
+            size,
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
             VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
             VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
@@ -507,21 +497,12 @@ namespace Vulkan {
             "Staging Vertex Buffer"
         );
 
-        void *data;
-        vmaMapMemory(m_Allocator, stagingAllocation, &data);
-        std::memcpy(data, vertices.data(), bufferSize);
+        void *stagingData;
+        vmaMapMemory(m_Allocator, stagingAllocation, &stagingData);
+        std::memcpy(stagingData, data.data(), size);
         vmaUnmapMemory(m_Allocator, stagingAllocation);
 
-        CreateBuffer(
-            bufferSize,
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-            0,
-            m_VertexBuffer, m_VertexAllocation,
-            "Vertex Buffer"
-        );
-
-        CopyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
+        CopyBuffer(stagingBuffer, targetBuffer, size);
 
         m_ResourceDeletionQueue->Enqueue({
             [this, stagingBuffer, stagingAllocation] {
@@ -529,6 +510,30 @@ namespace Vulkan {
             },
             m_TotalFramesRendered
         });
+    }
+
+    void Renderer::CreateVertexBuffer() {
+        const auto vertices = GetMeshManager()->GetMeshVerticesArray();
+        const VkDeviceSize requiredSize = sizeof(vertices[0]) * vertices.size();
+
+        if (m_VertexBuffer == VK_NULL_HANDLE || requiredSize > m_CurrentVertexBufferSize) {
+            if (m_VertexBuffer != VK_NULL_HANDLE) {
+                vmaDestroyBuffer(m_Allocator, m_VertexBuffer, m_VertexAllocation);
+            }
+
+            m_CurrentVertexBufferSize = std::max(MAX_GEOMETRY_BUFFER_SIZE, requiredSize);
+
+            CreateBuffer(
+                m_CurrentVertexBufferSize,
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+                0,
+                m_VertexBuffer, m_VertexAllocation,
+                "Global Vertex Buffer"
+            );
+        }
+
+        UploadToBuffer(m_VertexBuffer, vertices, requiredSize);
     }
 
     void Renderer::CopyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, const VkDeviceSize size) const {
@@ -1648,6 +1653,10 @@ namespace Vulkan {
         const VkFramebuffer &framebuffer,
         const VkExtent2D extent
     ) const {
+        if (m_VertexBuffer == VK_NULL_HANDLE || m_IndexBuffer == VK_NULL_HANDLE) {
+            return;
+        }
+
         VkRenderPassBeginInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         renderPassInfo.renderPass = m_MainRenderPass;
@@ -1704,7 +1713,15 @@ namespace Vulkan {
             );
 
             const auto info = GetMeshManager()->GetMeshInfo(drawCall.meshId);
-            vkCmdDrawIndexed(commandBuffer, info.indexCount, 1, info.indexOffset, info.vertexOffset, 0);
+
+            vkCmdDrawIndexed(
+                commandBuffer,
+                info.indexCount,
+                1,
+                info.indexOffset,
+                info.vertexOffset,
+                0
+            );
         }
 
         vkCmdEndRenderPass(commandBuffer);
@@ -1879,7 +1896,7 @@ namespace Vulkan {
         vkDestroyCommandPool(m_Device, m_GraphicsCommandPool, nullptr);
         vkDestroyCommandPool(m_Device, m_TransferCommandPool, nullptr);
 
-        DumpVmaStats();
+        // DumpVmaStats();
 
         // 9. Destroy Allocator and Device (Bottom-most child objects)
         vmaDestroyAllocator(m_Allocator);

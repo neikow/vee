@@ -13,9 +13,9 @@ Goal: Stop the renderer from crashing during resource deletion and handle memory
     - [x] Replace manual vkAllocateMemory and vkBindBufferMemory calls with vmaCreateBuffer.
     - [x] Add memory usage in Editor UI.
 
-- [ ] Unified Geometry Buffer (The "Big Buffer")
-    - [ ] Allocate one large VkBuffer for all Vertices and one for all Indices.
-    - [ ] Update MeshManager to return offset and size instead of creating new buffers per mesh.
+- [x] Unified Geometry Buffer (The "Big Buffer")
+    - [x] Allocate one large VkBuffer for all Vertices and one for all Indices.
+    - [x] Update MeshManager to return offset and size instead of creating new buffers per mesh.
 
 ## Phase 2: Decoupling & Modularization
 

@@ -26,9 +26,9 @@ public:
 
     [[nodiscard]] static std::vector<SceneData> ListScenes();
 
-    void LoadScene(const std::string &path);
+    void LoadScene(const std::string &path) const;
 
-    void SaveScene(const std::string &path, const std::string &sceneName);
+    void SaveScene(const std::string &path, const std::string &sceneName) const;
 };
 
 

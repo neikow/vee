@@ -21,8 +21,8 @@ Goal: Stop the renderer from crashing during resource deletion and handle memory
 
 Goal: Break the monolithic Renderer class into smaller, specialized units.
 
-- [ ] Create a VulkanDevice Class
-    - [ ] Move Instance, Physical Device, Logical Device, and Queue management here.
+- [x] Create a VulkanDevice Class
+    - [x] Move Instance, Physical Device, Logical Device, and Queue management here.
 
 - [ ] Create a Shader & Pipeline Cache
     - [ ] Implement a system that loads SPIR-V from files.

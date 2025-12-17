@@ -20,6 +20,7 @@
 #include "ui/interface/editor_console.h"
 #include "ui/interface/inspector.h"
 #include "ui/interface/scene_hierarchy.h"
+#include "ui/interface/statistics.h"
 #include "ui/interface/viewport.h"
 #include "ui/interface/modals/save_scene_as_modal.h"
 #include "ui/interface/modals/types.h"
@@ -66,6 +67,7 @@ void VeeEditor::DrawUI() {
     AssetManager::Draw("Asset Manager", this);
     Console::Draw("Console", this);
     Viewport::Draw("Viewport", this);
+    Statistics::Draw("Statistics", this);
 
     DrawModals();
 }

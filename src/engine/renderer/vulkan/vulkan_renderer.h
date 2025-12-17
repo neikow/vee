@@ -247,6 +247,8 @@ namespace Vulkan {
         void UpdateGeometryBuffers() override;
 
         void DumpVmaStats() const;
+
+        MemoryUsage GetMemoryUsage() const override;
     };
 }
 

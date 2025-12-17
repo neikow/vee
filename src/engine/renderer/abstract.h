@@ -16,6 +16,11 @@ struct PushData {
 using RendererInitTask = std::function<void()>;
 using RendererCleanupTask = std::function<void()>;
 
+struct MemoryUsage {
+    float availableMemoryMB = 0.0f;
+    float usedMemoryMB = 0.0f;
+};
+
 class AbstractRenderer {
     std::shared_ptr<MeshManager> m_MeshManager;
     std::shared_ptr<Vulkan::TextureManager> m_TextureManager;
@@ -41,6 +46,8 @@ public:
     [[nodiscard]] bool Initialized() const {
         return m_Initialized;
     }
+
+    virtual MemoryUsage GetMemoryUsage() const = 0;
 
     virtual void Draw() = 0;
 

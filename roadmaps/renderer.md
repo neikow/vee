@@ -11,17 +11,7 @@ Goal: Stop the renderer from crashing during resource deletion and handle memory
 - [x] Abstract Vulkan Memory Allocator (VMA)
     - [x] Integrate the AMD Vulkan Memory Allocator library.
     - [x] Replace manual vkAllocateMemory and vkBindBufferMemory calls with vmaCreateBuffer.
-    - [ ] Add memory usage in Editor UI.
-
-```c++
-VmaBudget budgets[VK_MAX_MEMORY_HEAPS];
-vmaGetHeapBudgets(m_Allocator, budgets);
-
-// Now you can display this in ImGui:
-ImGui::Text("VRAM Usage: %llu MB / %llu MB",
-budgets[0].usage / (1024 * 1024),
-budgets[0].budget / (1024 * 1024));
-```
+    - [x] Add memory usage in Editor UI.
 
 - [ ] Unified Geometry Buffer (The "Big Buffer")
     - [ ] Allocate one large VkBuffer for all Vertices and one for all Indices.

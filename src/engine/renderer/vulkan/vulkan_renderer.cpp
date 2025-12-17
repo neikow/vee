@@ -159,6 +159,20 @@ namespace Vulkan {
         }
     }
 
+    MemoryUsage Renderer::GetMemoryUsage() const {
+        MemoryUsage usage{};
+
+        if (m_Allocator == VK_NULL_HANDLE) return usage;
+
+        VmaBudget budgets[VK_MAX_MEMORY_HEAPS];
+        vmaGetHeapBudgets(m_Allocator, budgets);
+
+        usage.usedMemoryMB += budgets[0].usage / (1024.0f * 1024.0f);
+        usage.availableMemoryMB += budgets[0].budget / (1024.0f * 1024.0f);
+
+        return usage;
+    }
+
     float Renderer::GetAspectRatio() {
         return static_cast<float>(m_SwapChainExtent.width) / static_cast<float>(m_SwapChainExtent.height);
     }

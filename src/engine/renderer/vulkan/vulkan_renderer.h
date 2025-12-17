@@ -2,6 +2,7 @@
 #define GAME_ENGINE_VULKAN_RENDERER_H
 
 #define GLFW_INCLUDE_VULKAN
+#include <vk_mem_alloc.h>
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
 
@@ -10,6 +11,7 @@
 #include "../abstract.h"
 #include "../../models/mesh_manager/mesh_manager.h"
 #include "../../models/texture_manager/vulkan_texture_manager.h"
+#include "../../utils/renderer/deletion_queue.h"
 
 namespace Vulkan {
     constexpr int MAX_FRAMES_IN_FLIGHT = 2;
@@ -24,6 +26,9 @@ namespace Vulkan {
     class Renderer : public AbstractRenderer {
         friend class TextureManager;
         friend class RendererWithUi;
+
+        std::unique_ptr<DeletionQueue> m_ResourceDeletionQueue;
+        std::uint32_t m_TotalFramesRendered = 0;
 
         GLFWwindow *m_Window = nullptr;
         bool m_FramebufferResized = false;
@@ -59,7 +64,7 @@ namespace Vulkan {
         std::vector<VkCommandBuffer> m_CommandBuffers;
 
         VkImage m_DepthImage = VK_NULL_HANDLE;
-        VkDeviceMemory m_DepthImageMemory = VK_NULL_HANDLE;
+        VmaAllocation m_DepthImageAllocation = VK_NULL_HANDLE;
         VkImageView m_DepthImageView = VK_NULL_HANDLE;
 
         VkSampler m_TextureSampler = VK_NULL_HANDLE;
@@ -67,12 +72,12 @@ namespace Vulkan {
         std::vector<DrawCall> m_DrawQueue;
 
         VkBuffer m_VertexBuffer = VK_NULL_HANDLE;
-        VkDeviceMemory m_VertexBufferMemory = VK_NULL_HANDLE;
+        VmaAllocation m_VertexAllocation = VK_NULL_HANDLE;
         VkBuffer m_IndexBuffer = VK_NULL_HANDLE;
-        VkDeviceMemory m_IndexBufferMemory = VK_NULL_HANDLE;
+        VmaAllocation m_IndexAllocation = VK_NULL_HANDLE;
 
         std::vector<VkBuffer> m_UniformBuffers;
-        std::vector<VkDeviceMemory> m_UniformBuffersMemory;
+        std::vector<VmaAllocation> m_UniformBuffersAllocations;
         std::vector<void *> m_UniformBuffersMapped;
 
         std::vector<VkSemaphore> m_ImageAvailableSemaphores;
@@ -80,15 +85,18 @@ namespace Vulkan {
         std::vector<VkFence> m_InFlightFences;
 
         VkImage m_DefaultTextureImage = VK_NULL_HANDLE;
-        VkDeviceMemory m_DefaultTextureMemory = VK_NULL_HANDLE;
+        VmaAllocation m_DefaultTextureAllocation = VK_NULL_HANDLE;
         VkImageView m_DefaultTextureImageView = VK_NULL_HANDLE;
         VkFramebuffer m_DefaultTextureFramebuffer = VK_NULL_HANDLE;
 
-        uint32_t m_CurrentFrame = 0;
+        uint32_t m_CurrentFrameIndex = 0;
         uint32_t m_ImageIndex = 0;
 
+    protected:
+        VmaAllocator m_Allocator = VK_NULL_HANDLE;
+
     public:
-        Renderer() = default;
+        Renderer();
 
         void Initialize(int width, int height, const std::string &appName, uint32_t version) override;
 
@@ -166,10 +174,8 @@ namespace Vulkan {
         void CreateBuffer(
             VkDeviceSize size,
             VkBufferUsageFlags usage,
-            VkMemoryPropertyFlags properties,
-            VkBuffer &buffer,
-            VkDeviceMemory &bufferMemory,
-            const std::vector<uint32_t> &queueFamilyIndices
+            VmaMemoryUsage vmaUsage,
+            VmaAllocationCreateFlags allocationFlags, VkBuffer &buffer, VmaAllocation &allocation, const char *debugName
         ) const;
 
         void CopyBufferToImage(const VkBuffer &buffer, const VkImage &image, uint32_t width, uint32_t height) const;
@@ -182,10 +188,7 @@ namespace Vulkan {
             VkFormat format,
             VkImageTiling tiling,
             VkImageUsageFlags usage,
-            VkMemoryPropertyFlags properties,
-            VkImage &image,
-            VkDeviceMemory &imageMemory,
-            const std::vector<uint32_t> &queueFamilyIndices
+            VmaMemoryUsage vmaUsage, VkImage &image, VmaAllocation &allocation, const char *debugName
         ) const;
 
         [[nodiscard]] VkCommandBuffer BeginSingleTimeCommands(const VkCommandPool &commandPool) const;
@@ -242,6 +245,8 @@ namespace Vulkan {
         void UpdateTextureDescriptor(TextureId textureId) override;
 
         void UpdateGeometryBuffers() override;
+
+        void DumpVmaStats() const;
     };
 }
 

@@ -38,8 +38,14 @@ FetchContent_Declare(
         GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
         GIT_TAG v2.0.0rc13
 )
-# Note: tinyobjloader is now available if it has a CMake file, otherwise we handle it like stb
 FetchContent_MakeAvailable(tinyobjloader)
+
+FetchContent_Declare(
+        VMA
+        GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+        GIT_TAG master
+)
+FetchContent_MakeAvailable(VMA)
 
 # ----------------------------------------------------
 # 2. Find and Configure System Dependencies
@@ -98,7 +104,9 @@ target_link_libraries(ImGui PRIVATE glfw)
 
 foreach (EXECUTABLE ${EXECUTABLES})
     target_include_directories(${EXECUTABLE} PRIVATE
-            ${SHADERC_INCLUDE_DIR} ${EXTERNAL_DIRS}
+            ${SHADERC_INCLUDE_DIR}
+            ${EXTERNAL_DIRS}
+            "${vma_SOURCE_DIR}/include"
     )
 
     target_link_libraries(${EXECUTABLE} PRIVATE

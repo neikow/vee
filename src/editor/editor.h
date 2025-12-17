@@ -11,9 +11,26 @@
 /** Struct representing the current state of the editor.
  */
 struct EditorState {
+    /** Flag indicating if the viewport currently has focus.
+     */
     bool isViewportFocused = false;
+
+    /** Flag indicating if the mouse is currently hovering over the viewport.
+     */
     bool isViewportHovered = false;
+
+    /** Size of the viewport in pixels.
+     */
     glm::vec<2, uint32_t> viewportSize = {0, 0};
+
+    /** Currently selected entity ID within the editor.
+     * NULL_ENTITY indicates no selection.
+     */
+    EntityID selectedEntity = NULL_ENTITY;
+
+    /** Flag indicating if the editor is waiting for an entity selection within the viewport.
+     */
+    bool isWaitingForEntitySelection = false;
 };
 
 /** Main class representing the game engine editor application.
@@ -40,14 +57,10 @@ class VeeEditor {
     /** Current settings of the editor.
      */
     EditorSettings m_EditorSettings;
+
     /** Current state of the editor.
      */
     EditorState m_State;
-
-    /** Currently selected entity ID within the editor.
-     * NULL_ENTITY indicates no selection.
-     */
-    EntityID m_SelectedEntity = NULL_ENTITY;
 
     /** Renders modal dialogs within the editor UI.
      */
@@ -78,7 +91,7 @@ class VeeEditor {
 public:
     explicit VeeEditor(const std::shared_ptr<Engine> &engine);
 
-    void HandleEntitySelectionWithinViewport(double normX, double normY);
+    void RequestEntitySelectionWithinViewport(double normX, double normY);
 
     void NewEmptyScene();
 

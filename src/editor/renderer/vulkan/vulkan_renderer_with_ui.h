@@ -10,18 +10,28 @@
 namespace Vulkan {
     class Renderer;
 
+    struct PickingRequest {
+        VkBuffer buffer;
+        VmaAllocation allocation;
+        bool isPending;
+        uint32_t frameSubmitted;
+    };
+
     class RendererWithUi final : public Renderer {
         VkDescriptorPool m_ImguiDescriptorPool = VK_NULL_HANDLE;
 
         VkExtent2D m_ViewportExtent = {};
         VkImage m_ViewportImage = VK_NULL_HANDLE;
-        VkDeviceMemory m_ViewportMemory = VK_NULL_HANDLE;
+        VmaAllocation m_ViewportAllocation = VK_NULL_HANDLE;
         VkImageView m_ViewportImageView = VK_NULL_HANDLE;
         VkFramebuffer m_ViewportFramebuffer = VK_NULL_HANDLE;
         VkDescriptorSet m_ViewportDescriptorSet = VK_NULL_HANDLE;
 
+        PickingRequest m_PickingRequest;
+        Entities::EntityID m_LastPickedEntityID = Entities::NULL_ENTITY;
+
         VkImage m_PickingImage = VK_NULL_HANDLE;
-        VkDeviceMemory m_PickingMemory = VK_NULL_HANDLE;
+        VmaAllocation m_PickingAllocation = VK_NULL_HANDLE;
         VkImageView m_PickingImageView = VK_NULL_HANDLE;
         VkFramebuffer m_PickingFramebuffer = VK_NULL_HANDLE;
 
@@ -37,11 +47,19 @@ namespace Vulkan {
 
         void Cleanup() override;
 
-        Entities::EntityID GetEntityIDAt(double norm_x, double norm_y) const;
+        void RequestEntityIDAt(double normX, double normY);
+
+        bool IsPickingRequestPending() const;
+
+        void UpdatePickingResult();
+
+        void Draw() override;
 
         [[nodiscard]] VkDescriptorSet GetViewportDescriptorSet() const;
 
         void UpdateViewportSize(uint32_t width, uint32_t height);
+
+        Entities::EntityID GetLastPickedID() const;
 
     private:
         void InitImgui();
@@ -60,7 +78,7 @@ namespace Vulkan {
 
         void CreatePickingResources();
 
-        void CleanupPickingResources() const;
+        void CleanupPickingResources();
 
         void PrepareForRendering() override;
     };

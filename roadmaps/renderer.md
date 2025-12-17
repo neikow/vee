@@ -4,13 +4,24 @@
 
 Goal: Stop the renderer from crashing during resource deletion and handle memory more efficiently.
 
-- [ ] Implement a Frame-Delayed Deletion Queue
-    - [ ] Create a struct ResourceDeletion containing the Vulkan handle and the frameIndex it was deleted on.
-    - [ ] Only call vkDestroy... when currentFrame > deletionFrame + MAX_FRAMES_IN_FLIGHT.
+- [x] Implement a Frame-Delayed Deletion Queue
+    - [x] Create a struct ResourceDeletion containing the Vulkan handle and the frameIndex it was deleted on.
+    - [x] Only call vkDestroy... when currentFrame > deletionFrame + MAX_FRAMES_IN_FLIGHT.
 
-- [ ] Abstract Vulkan Memory Allocator (VMA)
-    - [ ] Integrate the AMD Vulkan Memory Allocator library.
-    - [ ] Replace manual vkAllocateMemory and vkBindBufferMemory calls with vmaCreateBuffer.
+- [x] Abstract Vulkan Memory Allocator (VMA)
+    - [x] Integrate the AMD Vulkan Memory Allocator library.
+    - [x] Replace manual vkAllocateMemory and vkBindBufferMemory calls with vmaCreateBuffer.
+    - [ ] Add memory usage in Editor UI.
+
+```c++
+VmaBudget budgets[VK_MAX_MEMORY_HEAPS];
+vmaGetHeapBudgets(m_Allocator, budgets);
+
+// Now you can display this in ImGui:
+ImGui::Text("VRAM Usage: %llu MB / %llu MB",
+budgets[0].usage / (1024 * 1024),
+budgets[0].budget / (1024 * 1024));
+```
 
 - [ ] Unified Geometry Buffer (The "Big Buffer")
     - [ ] Allocate one large VkBuffer for all Vertices and one for all Indices.
@@ -22,6 +33,7 @@ Goal: Break the monolithic Renderer class into smaller, specialized units.
 
 - [ ] Create a VulkanDevice Class
     - [ ] Move Instance, Physical Device, Logical Device, and Queue management here.
+
 - [ ] Create a Shader & Pipeline Cache
     - [ ] Implement a system that loads SPIR-V from files.
     - [ ] Create a hash for Pipeline states so you don't recreate identical pipelines.

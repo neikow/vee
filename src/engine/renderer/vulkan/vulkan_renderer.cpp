@@ -4,18 +4,18 @@
 #include <set>
 #include <GLFW/glfw3.h>
 #include <shaderc/shaderc.h>
-#include <vulkan/vulkan.h>
 
 #include "consts.h"
 #include "imgui_impl_vulkan.h"
 #include "stb_image.h"
-#include "tiny_obj_loader.h"
 #include "types.h"
 #include "utils.h"
 #include "vertex_utils.h"
 #include "../../engine.h"
 #include "../../io/input_system.h"
 #include "../../shaders/compile.h"
+#include "../../utils/renderer/deletion_queue.h"
+#include "vk_mem_alloc.h"
 
 static constexpr uint8_t DEFAULT_PURPLE_PIXEL[4] = {255, 0, 255, 255};
 
@@ -90,19 +90,14 @@ namespace Vulkan {
 
     void Renderer::InitWindow(const int width, const int height, const std::string &appName) {
         glfwInit();
-
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
         m_Window = glfwCreateWindow(width, height, appName.c_str(), nullptr, nullptr);
         glfwSetWindowUserPointer(m_Window, this);
         glfwSetFramebufferSizeCallback(m_Window, FramebufferResizeCallback);
 
+        // TODO: Move input system initialization elsewhere
         InputSystem::SetupCallbacks(m_Window);
-
-        EnqueueCleanupTask([this] {
-            glfwDestroyWindow(m_Window);
-            glfwTerminate();
-        });
     }
 
     void Renderer::FramebufferResizeCallback(GLFWwindow *window, int, int) {
@@ -132,15 +127,36 @@ namespace Vulkan {
     }
 
     void Renderer::UpdateGeometryBuffers() {
-        vkDeviceWaitIdle(m_Device);
-
-        vkDestroyBuffer(m_Device, m_VertexBuffer, nullptr);
-        vkFreeMemory(m_Device, m_VertexBufferMemory, nullptr);
-        vkDestroyBuffer(m_Device, m_IndexBuffer, nullptr);
-        vkFreeMemory(m_Device, m_IndexBufferMemory, nullptr);
+        VkBuffer oldVertexBuffer = m_VertexBuffer;
+        VmaAllocation oldVertexAlloc = m_VertexAllocation;
+        VkBuffer oldIndexBuffer = m_IndexBuffer;
+        VmaAllocation oldIndexAlloc = m_IndexAllocation;
 
         CreateVertexBuffer();
         CreateIndexBuffer();
+
+        m_ResourceDeletionQueue->Enqueue({
+            [this, oldVertexBuffer, oldVertexAlloc, oldIndexBuffer, oldIndexAlloc] {
+                vmaDestroyBuffer(m_Allocator, oldVertexBuffer, oldVertexAlloc);
+                vmaDestroyBuffer(m_Allocator, oldIndexBuffer, oldIndexAlloc);
+            },
+            m_TotalFramesRendered
+        });
+    }
+
+    void Renderer::DumpVmaStats() const {
+        if (m_Allocator == VK_NULL_HANDLE) return;
+
+        char *statsString = nullptr;
+        vmaBuildStatsString(m_Allocator, &statsString, VK_TRUE);
+
+        if (statsString) {
+            std::cout << "--- VMA LEAK REPORT ---" << std::endl;
+            std::cout << statsString << std::endl;
+            std::cout << "-----------------------" << std::endl;
+
+            vmaFreeStatsString(m_Allocator, statsString);
+        }
     }
 
     float Renderer::GetAspectRatio() {
@@ -217,21 +233,12 @@ namespace Vulkan {
                 || vkCreateFence(m_Device, &fenceInfo, nullptr, &m_InFlightFences[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create per-frame sync objects!");
             }
-
-            EnqueueCleanupTask([this, i] {
-                vkDestroySemaphore(m_Device, m_ImageAvailableSemaphores[i], nullptr);
-                vkDestroyFence(m_Device, m_InFlightFences[i], nullptr);
-            });
         }
 
         for (auto &renderFinishedSemaphore: m_RenderFinishedSemaphores) {
             if (vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create per-image renderFinished semaphore!");
             }
-
-            EnqueueCleanupTask([this, renderFinishedSemaphore] {
-                vkDestroySemaphore(m_Device, renderFinishedSemaphore, nullptr);
-            });
         }
     }
 
@@ -251,26 +258,29 @@ namespace Vulkan {
     void Renderer::CreateMissingTexture() {
         constexpr VkDeviceSize imageSize = 4;
         VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
+        VmaAllocation stagingAlloc;
 
         CreateBuffer(
             imageSize,
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stagingBuffer,
-            stagingBufferMemory,
-            {}
+            VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            stagingBuffer, stagingAlloc,
+            "Missing Texture Staging Buffer"
         );
 
         void *data;
-        vkMapMemory(m_Device, stagingBufferMemory, 0, imageSize, 0, &data);
-        std::memcpy(data, DEFAULT_PURPLE_PIXEL, static_cast<size_t>(imageSize));
-        vkUnmapMemory(m_Device, stagingBufferMemory);
+        vmaMapMemory(m_Allocator, stagingAlloc, &data);
+        std::memcpy(data, DEFAULT_PURPLE_PIXEL, imageSize);
+        vmaUnmapMemory(m_Allocator, stagingAlloc);
 
         CreateImage(
             1, 1, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DefaultTextureImage, m_DefaultTextureMemory, {}
+            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+            m_DefaultTextureImage,
+            m_DefaultTextureAllocation,
+            "Missing Texture"
         );
 
         TransitionImageLayout(
@@ -291,13 +301,9 @@ namespace Vulkan {
             VK_IMAGE_ASPECT_COLOR_BIT
         );
 
-        vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-        vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
-
-        EnqueueCleanupTask([this] {
-            vkDestroyImageView(m_Device, m_DefaultTextureImageView, nullptr);
-            vkDestroyImage(m_Device, m_DefaultTextureImage, nullptr);
-            vkFreeMemory(m_Device, m_DefaultTextureMemory, nullptr);
+        m_ResourceDeletionQueue->Enqueue({
+            [this, stagingBuffer, stagingAlloc] { vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAlloc); },
+            m_TotalFramesRendered
         });
     }
 
@@ -402,92 +408,73 @@ namespace Vulkan {
         if (vkCreateDescriptorPool(m_Device, &poolInfo, nullptr, &m_DescriptorPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor pool!");
         }
-
-        EnqueueCleanupTask([this] {
-            vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
-        });
     }
 
     void Renderer::CreateUniformBuffers() {
         m_UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-        m_UniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+        m_UniformBuffersAllocations.resize(MAX_FRAMES_IN_FLIGHT);
         m_UniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             constexpr VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-            CreateBuffer(
-                bufferSize,
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                m_UniformBuffers[i],
-                m_UniformBuffersMemory[i],
-                {}
-            );
 
-            vkMapMemory(
-                m_Device,
-                m_UniformBuffersMemory[i],
-                0,
-                bufferSize,
-                0,
-                &m_UniformBuffersMapped[i]
-            );
+            VkBufferCreateInfo bufferInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+            bufferInfo.size = bufferSize;
+            bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-            EnqueueCleanupTask([this, i] {
-                vkDestroyBuffer(m_Device, m_UniformBuffers[i], nullptr);
-                vkFreeMemory(m_Device, m_UniformBuffersMemory[i], nullptr);
-            });
+            VmaAllocationCreateInfo allocInfo = {};
+            allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+            allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                              VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+            VmaAllocationInfo resultInfo;
+            if (vmaCreateBuffer(m_Allocator, &bufferInfo, &allocInfo,
+                                &m_UniformBuffers[i], &m_UniformBuffersAllocations[i],
+                                &resultInfo) != VK_SUCCESS) {
+                throw std::runtime_error("failed to create mapped uniform buffer!");
+            }
+
+            m_UniformBuffersMapped[i] = resultInfo.pMappedData;
         }
     }
 
     void Renderer::CreateIndexBuffer() {
         const auto indices = GetMeshManager()->GetMeshIndicesArray();
         const VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
         VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-
-        std::vector<uint32_t> stagingFamilies;
-
-        const auto familyIndices = FindQueueFamilies(m_PhysicalDevice);
-        if (familyIndices.transferFamily.has_value())
-            stagingFamilies.push_back(
-                familyIndices.transferFamily.value());
+        VmaAllocation stagingAlloc;
 
         CreateBuffer(
             bufferSize,
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stagingBuffer,
-            stagingBufferMemory,
-            stagingFamilies
+            VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            stagingBuffer, stagingAlloc,
+            "Staging Index Buffer"
         );
 
         void *data;
-        vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
-        memcpy(data, indices.data(), bufferSize);
-        vkUnmapMemory(m_Device, stagingBufferMemory);
-
-        std::vector<uint32_t> deviceFamilies;
-        if (familyIndices.graphicsFamily.has_value())
-            deviceFamilies.
-                    push_back(familyIndices.graphicsFamily.value());
-        if (familyIndices.transferFamily.has_value() && familyIndices.transferFamily.value() != familyIndices.
-            graphicsFamily.value())
-            deviceFamilies.push_back(familyIndices.transferFamily.value());
+        vmaMapMemory(m_Allocator, stagingAlloc, &data);
+        std::memcpy(data, indices.data(), bufferSize);
+        vmaUnmapMemory(m_Allocator, stagingAlloc);
 
         CreateBuffer(
             bufferSize,
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            m_IndexBuffer,
-            m_IndexBufferMemory,
-            deviceFamilies
+            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+            0,
+            m_IndexBuffer, m_IndexAllocation,
+            "Index Buffer"
         );
 
         CopyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
 
-        vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-        vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
+        m_ResourceDeletionQueue->Enqueue({
+            [this, stagingBuffer, stagingAlloc] { vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAlloc); },
+            m_TotalFramesRendered
+        });
     }
 
     void Renderer::CreateVertexBuffer() {
@@ -495,45 +482,39 @@ namespace Vulkan {
         const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
         VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-        std::vector<uint32_t> stagingFamilies;
-
-        const auto indices = FindQueueFamilies(m_PhysicalDevice);
-        if (indices.transferFamily.has_value()) stagingFamilies.push_back(indices.transferFamily.value());
+        VmaAllocation stagingAllocation;
 
         CreateBuffer(
             bufferSize,
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stagingBuffer,
-            stagingBufferMemory,
-            stagingFamilies
+            VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            stagingBuffer, stagingAllocation,
+            "Staging Vertex Buffer"
         );
 
         void *data;
-        vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
-        memcpy(data, vertices.data(), bufferSize);
-        vkUnmapMemory(m_Device, stagingBufferMemory);
-
-        std::vector<uint32_t> deviceFamilies;
-        if (indices.graphicsFamily.has_value()) deviceFamilies.push_back(indices.graphicsFamily.value());
-        if (indices.transferFamily.has_value() && indices.transferFamily.value() != indices.graphicsFamily.value())
-            deviceFamilies.push_back(indices.transferFamily.value());
-
+        vmaMapMemory(m_Allocator, stagingAllocation, &data);
+        std::memcpy(data, vertices.data(), bufferSize);
+        vmaUnmapMemory(m_Allocator, stagingAllocation);
 
         CreateBuffer(
             bufferSize,
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            m_VertexBuffer,
-            m_VertexBufferMemory,
-            deviceFamilies
+            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+            0,
+            m_VertexBuffer, m_VertexAllocation,
+            "Vertex Buffer"
         );
 
         CopyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
 
-        vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-        vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
+        m_ResourceDeletionQueue->Enqueue({
+            [this, stagingBuffer, stagingAllocation] {
+                vmaDestroyBuffer(m_Allocator, stagingBuffer, stagingAllocation);
+            },
+            m_TotalFramesRendered
+        });
     }
 
     void Renderer::CopyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, const VkDeviceSize size) const {
@@ -579,52 +560,31 @@ namespace Vulkan {
         if (vkCreateSampler(m_Device, &samplerInfo, nullptr, &m_TextureSampler) != VK_SUCCESS) {
             throw std::runtime_error("failed to create texture sampler!");
         }
-
-        EnqueueCleanupTask([this] {
-            vkDestroySampler(m_Device, m_TextureSampler, nullptr);
-        });
     }
 
     void Renderer::CreateBuffer(
         const VkDeviceSize size,
         const VkBufferUsageFlags usage,
-        const VkMemoryPropertyFlags properties,
+        const VmaMemoryUsage vmaUsage,
+        const VmaAllocationCreateFlags allocationFlags,
         VkBuffer &buffer,
-        VkDeviceMemory &bufferMemory,
-        const std::vector<uint32_t> &queueFamilyIndices
+        VmaAllocation &allocation,
+        const char *debugName
     ) const {
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferInfo.size = size;
         bufferInfo.usage = usage;
+        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-        if (!queueFamilyIndices.empty() && queueFamilyIndices.size() > 1) {
-            bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
-            bufferInfo.queueFamilyIndexCount = queueFamilyIndices.size();
-            bufferInfo.pQueueFamilyIndices = queueFamilyIndices.data();
-        } else {
-            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-            bufferInfo.queueFamilyIndexCount = 0;
-            bufferInfo.pQueueFamilyIndices = nullptr;
+        VmaAllocationCreateInfo allocInfo = {};
+        allocInfo.usage = vmaUsage;
+        allocInfo.flags = allocationFlags;
+
+        if (vmaCreateBuffer(m_Allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create VMA buffer!");
         }
-
-        if (vkCreateBuffer(m_Device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create buffer!");
-        }
-
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(m_Device, buffer, &memRequirements);
-
-        VkMemoryAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = Utils::FindMemoryType(m_PhysicalDevice, memRequirements.memoryTypeBits, properties);
-
-        if (vkAllocateMemory(m_Device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate buffer memory!");
-        }
-
-        vkBindBufferMemory(m_Device, buffer, bufferMemory, 0);
+        vmaSetAllocationName(m_Allocator, allocation, debugName);
     }
 
     void Renderer::CopyBufferToImage(
@@ -681,7 +641,8 @@ namespace Vulkan {
             framebufferInfo.height = m_SwapChainExtent.height;
             framebufferInfo.layers = 1;
 
-            if (vkCreateFramebuffer(m_Device, &framebufferInfo, nullptr, &m_SwapChainFramebuffers[i]) != VK_SUCCESS) {
+            if (vkCreateFramebuffer(m_Device, &framebufferInfo, nullptr, &m_SwapChainFramebuffers[i]) !=
+                VK_SUCCESS) {
                 throw std::runtime_error("failed to create framebuffer!");
             }
 
@@ -695,10 +656,10 @@ namespace Vulkan {
         const VkFormat format,
         const VkImageTiling tiling,
         const VkImageUsageFlags usage,
-        const VkMemoryPropertyFlags properties,
+        const VmaMemoryUsage vmaUsage,
         VkImage &image,
-        VkDeviceMemory &imageMemory,
-        const std::vector<uint32_t> &queueFamilyIndices
+        VmaAllocation &allocation,
+        const char *debugName
     ) const {
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -714,37 +675,14 @@ namespace Vulkan {
         imageInfo.usage = usage;
         imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
-        if (!queueFamilyIndices.empty() && queueFamilyIndices.size() > 1) {
-            imageInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
-            imageInfo.queueFamilyIndexCount = queueFamilyIndices.size();
-            imageInfo.pQueueFamilyIndices = queueFamilyIndices.data();
-        } else {
-            imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-            imageInfo.queueFamilyIndexCount = 0;
-            imageInfo.pQueueFamilyIndices = nullptr;
-        }
-
         if (vkCreateImage(m_Device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
             throw std::runtime_error("failed to create image!");
         }
 
-        VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(m_Device, image, &memRequirements);
+        const VmaAllocationCreateInfo allocInfo = {.usage = vmaUsage};
 
-        VkMemoryAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = Utils::FindMemoryType(
-            m_PhysicalDevice,
-            memRequirements.memoryTypeBits,
-            properties
-        );
-
-        if (vkAllocateMemory(m_Device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate image memory!");
-        }
-
-        vkBindImageMemory(m_Device, image, imageMemory, 0);
+        vmaCreateImage(m_Allocator, &imageInfo, &allocInfo, &image, &allocation, nullptr);
+        vmaSetAllocationName(m_Allocator, allocation, debugName);
     }
 
     VkCommandBuffer Renderer::BeginSingleTimeCommands(const VkCommandPool &commandPool) const {
@@ -866,10 +804,10 @@ namespace Vulkan {
             depthFormat,
             VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
             m_DepthImage,
-            m_DepthImageMemory,
-            {}
+            m_DepthImageAllocation,
+            "Depth Image"
         );
 
         m_DepthImageView = CreateImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -878,8 +816,9 @@ namespace Vulkan {
             m_DepthImage,
             depthFormat,
             VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-    };
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+        );
+    }
 
     void Renderer::CreateCommandPools() {
         const QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(m_PhysicalDevice);
@@ -893,10 +832,6 @@ namespace Vulkan {
             throw std::runtime_error("failed to create command pool!");
         }
 
-        EnqueueCleanupTask([this] {
-            vkDestroyCommandPool(m_Device, m_GraphicsCommandPool, nullptr);
-        });
-
         VkCommandPoolCreateInfo transferPoolInfo{};
         transferPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         transferPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -905,10 +840,6 @@ namespace Vulkan {
         if (vkCreateCommandPool(m_Device, &transferPoolInfo, nullptr, &m_TransferCommandPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create command pool!");
         }
-
-        EnqueueCleanupTask([this] {
-            vkDestroyCommandPool(m_Device, m_TransferCommandPool, nullptr);
-        });
     }
 
     VkShaderModule Renderer::CreateShaderModule(
@@ -1104,11 +1035,6 @@ namespace Vulkan {
 
         vkDestroyShaderModule(m_Device, fragShaderModule, nullptr);
         vkDestroyShaderModule(m_Device, vertShaderModule, nullptr);
-
-        EnqueueCleanupTask([this] {
-            vkDestroyPipeline(m_Device, m_GraphicsPipeline, nullptr);
-            vkDestroyPipelineLayout(m_Device, m_PipelineLayout, nullptr);
-        });
     }
 
     void Renderer::CreateDescriptorSetLayout() {
@@ -1158,10 +1084,6 @@ namespace Vulkan {
         if (vkCreateDescriptorSetLayout(m_Device, &layoutInfo, nullptr, &m_DescriptorSetLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor set layout!");
         }
-
-        EnqueueCleanupTask([this] {
-            vkDestroyDescriptorSetLayout(m_Device, m_DescriptorSetLayout, nullptr);
-        });
     }
 
     void Renderer::CreateMainRenderPass() {
@@ -1238,10 +1160,6 @@ namespace Vulkan {
         if (vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_MainRenderPass) != VK_SUCCESS) {
             throw std::runtime_error("failed to create render pass!");
         }
-
-        EnqueueCleanupTask([this] {
-            vkDestroyRenderPass(m_Device, m_MainRenderPass, nullptr);
-        });
     }
 
     VkImageView Renderer::CreateImageView(
@@ -1357,13 +1275,13 @@ namespace Vulkan {
         VkPhysicalDeviceFeatures deviceFeatures{};
         deviceFeatures.samplerAnisotropy = VK_TRUE;
 
-        VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures{};
-        indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-        indexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-        indexingFeatures.runtimeDescriptorArray = VK_TRUE;
-        indexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
-        indexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
-        indexingFeatures.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+        VkPhysicalDeviceVulkan12Features features12 = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+        features12.bufferDeviceAddress = VK_TRUE;
+        features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+        features12.runtimeDescriptorArray = VK_TRUE;
+        features12.descriptorBindingPartiallyBound = VK_TRUE;
+        features12.descriptorBindingVariableDescriptorCount = VK_TRUE;
+        features12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
 
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -1376,7 +1294,7 @@ namespace Vulkan {
         createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
         createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
-        createInfo.pNext = &indexingFeatures;
+        createInfo.pNext = &features12;
 
         if constexpr (ENABLE_VALIDATION_LAYERS) {
             createInfo.enabledLayerCount = static_cast<uint32_t>(ACTIVE_VALIDATION_LAYERS.size());
@@ -1393,7 +1311,22 @@ namespace Vulkan {
         vkGetDeviceQueue(m_Device, indices.presentFamily.value(), 0, &m_PresentQueue);
         vkGetDeviceQueue(m_Device, indices.transferFamily.value(), 0, &m_TransferQueue);
 
-        EnqueueCleanupTask([this] { vkDestroyDevice(m_Device, nullptr); });
+        VmaVulkanFunctions vulkanFunctions = {};
+        vulkanFunctions.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
+        vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
+
+        VmaAllocatorCreateInfo allocatorCreateInfo{
+            .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
+            .physicalDevice = m_PhysicalDevice,
+            .device = m_Device,
+            .pVulkanFunctions = &vulkanFunctions,
+            .instance = m_Instance,
+            .vulkanApiVersion = VK_API_VERSION_1_4,
+        };
+
+        if (vmaCreateAllocator(&allocatorCreateInfo, &m_Allocator) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create VMA allocator!");
+        }
     }
 
     void Renderer::PickPhysicalDevice() {
@@ -1425,10 +1358,6 @@ namespace Vulkan {
         if (glfwCreateWindowSurface(m_Instance, m_Window, nullptr, &m_Surface) != VK_SUCCESS) {
             throw std::runtime_error("failed to create window surface!");
         }
-
-        EnqueueCleanupTask([this] {
-            vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
-        });
     }
 
     void Renderer::SetupDebugMessenger() {
@@ -1445,10 +1374,6 @@ namespace Vulkan {
         ) {
             throw std::runtime_error("failed to set up debug messenger!");
         }
-
-        EnqueueCleanupTask([this] {
-            Utils::DestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
-        });
     }
 
     void Renderer::CreateInstance(
@@ -1497,10 +1422,6 @@ namespace Vulkan {
         if (vkCreateInstance(&createInfo, nullptr, &m_Instance) != VK_SUCCESS) {
             throw std::runtime_error("failed to create instance!");
         }
-
-        EnqueueCleanupTask([this] {
-            vkDestroyInstance(m_Instance, nullptr);
-        });
     }
 
     SwapChainSupportDetails Renderer::QuerySwapChainSupport(const VkPhysicalDevice &device) const {
@@ -1628,12 +1549,17 @@ namespace Vulkan {
         return indices;
     }
 
+    Renderer::Renderer() {
+        m_ResourceDeletionQueue = std::make_unique<DeletionQueue>(MAX_FRAMES_IN_FLIGHT);
+    }
+
     void Renderer::Initialize(
         const int width,
         const int height,
         const std::string &appName,
         const uint32_t version
     ) {
+        // TODO: Move window creation out of renderer
         InitWindow(width, height, appName);
         InitVulkan(appName, version);
         m_Initialized = true;
@@ -1667,7 +1593,7 @@ namespace Vulkan {
             m_PipelineLayout,
             0,
             1,
-            &m_DescriptorSets[m_CurrentFrame],
+            &m_DescriptorSets[m_CurrentFrameIndex],
             0,
             nullptr
         );
@@ -1746,7 +1672,7 @@ namespace Vulkan {
 
         vkCmdBindDescriptorSets(
             commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout,
-            0, 1, &m_DescriptorSets[m_CurrentFrame], 0, nullptr
+            0, 1, &m_DescriptorSets[m_CurrentFrameIndex], 0, nullptr
         );
 
         // 4. Execute Draw Queue
@@ -1775,11 +1701,13 @@ namespace Vulkan {
     }
 
     void Renderer::Draw() {
-        vkWaitForFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
+        m_ResourceDeletionQueue->Flush(m_TotalFramesRendered);
+
+        vkWaitForFences(m_Device, 1, &m_InFlightFences[m_CurrentFrameIndex], VK_TRUE, UINT64_MAX);
 
         VkResult result = vkAcquireNextImageKHR(
             m_Device, m_SwapChain, UINT64_MAX,
-            m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &m_ImageIndex
+            m_ImageAvailableSemaphores[m_CurrentFrameIndex], VK_NULL_HANDLE, &m_ImageIndex
         );
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -1790,9 +1718,9 @@ namespace Vulkan {
             throw std::runtime_error("failed to acquire swap chain image!");
         }
 
-        vkResetFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame]);
+        vkResetFences(m_Device, 1, &m_InFlightFences[m_CurrentFrameIndex]);
 
-        const VkCommandBuffer cmd = m_CommandBuffers[m_CurrentFrame];
+        const VkCommandBuffer cmd = m_CommandBuffers[m_CurrentFrameIndex];
         vkResetCommandBuffer(cmd, 0);
 
         VkCommandBufferBeginInfo beginInfo{};
@@ -1813,7 +1741,7 @@ namespace Vulkan {
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-        const VkSemaphore waitSemaphores[] = {m_ImageAvailableSemaphores[m_CurrentFrame]};
+        const VkSemaphore waitSemaphores[] = {m_ImageAvailableSemaphores[m_CurrentFrameIndex]};
         constexpr VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
         submitInfo.waitSemaphoreCount = 1;
         submitInfo.pWaitSemaphores = waitSemaphores;
@@ -1825,7 +1753,7 @@ namespace Vulkan {
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
-        if (vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, m_InFlightFences[m_CurrentFrame]) != VK_SUCCESS) {
+        if (vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, m_InFlightFences[m_CurrentFrameIndex]) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit draw command buffer!");
         }
 
@@ -1847,7 +1775,8 @@ namespace Vulkan {
             throw std::runtime_error("failed to present swap chain image!");
         }
 
-        m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+        m_CurrentFrameIndex = (m_CurrentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+        m_TotalFramesRendered++;
     }
 
     void Renderer::UpdateCameraMatrix(const glm::mat4x4 &viewMatrix, const glm::mat4x4 &projectionMatrix) {
@@ -1857,7 +1786,7 @@ namespace Vulkan {
         ubo.proj = projectionMatrix;
         ubo.proj[1][1] *= -1;
 
-        memcpy(m_UniformBuffersMapped[m_CurrentFrame], &ubo, sizeof(UniformBufferObject));
+        memcpy(m_UniformBuffersMapped[m_CurrentFrameIndex], &ubo, sizeof(UniformBufferObject));
     }
 
     void Renderer::SubmitDrawCall(
@@ -1876,8 +1805,7 @@ namespace Vulkan {
 
     void Renderer::CleanupSwapChain() const {
         vkDestroyImageView(m_Device, m_DepthImageView, nullptr);
-        vkDestroyImage(m_Device, m_DepthImage, nullptr);
-        vkFreeMemory(m_Device, m_DepthImageMemory, nullptr);
+        vmaDestroyImage(m_Allocator, m_DepthImage, m_DepthImageAllocation);
 
         for (const auto framebuffer: m_SwapChainFramebuffers) {
             vkDestroyFramebuffer(m_Device, framebuffer, nullptr);
@@ -1891,16 +1819,66 @@ namespace Vulkan {
     }
 
     void Renderer::Cleanup() {
-        vkDestroyBuffer(m_Device, m_VertexBuffer, nullptr);
-        vkFreeMemory(m_Device, m_VertexBufferMemory, nullptr);
-        vkDestroyBuffer(m_Device, m_IndexBuffer, nullptr);
-        vkFreeMemory(m_Device, m_IndexBufferMemory, nullptr);
+        WaitIdle();
 
+        // 1. Clear the frame-delayed resources (staging buffers, etc.)
+        m_ResourceDeletionQueue->Flush(UINT32_MAX);
+
+        // 2. Destroy objects managed by external managers
+        if (GetTextureManager()) {
+            GetTextureManager()->GraphicMemoryCleanup();
+        }
+
+        // 3. Destroy Global Textures and Buffers
+        if (m_DefaultTextureImageView) vkDestroyImageView(m_Device, m_DefaultTextureImageView, nullptr);
+        if (m_DefaultTextureImage) vmaDestroyImage(m_Allocator, m_DefaultTextureImage, m_DefaultTextureAllocation);
+
+        if (m_VertexBuffer) vmaDestroyBuffer(m_Allocator, m_VertexBuffer, m_VertexAllocation);
+        if (m_IndexBuffer) vmaDestroyBuffer(m_Allocator, m_IndexBuffer, m_IndexAllocation);
+
+        // 4. Destroy Uniform Buffers (per frame)
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            vmaDestroyBuffer(m_Allocator, m_UniformBuffers[i], m_UniformBuffersAllocations[i]);
+        }
+
+        // 5. Destroy Swapchain-related resources (Images are destroyed here via Swapchain)
         CleanupSwapChain();
 
-        ExecuteCleanupTasks();
+        // 6. Destroy Sync Objects
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            vkDestroySemaphore(m_Device, m_ImageAvailableSemaphores[i], nullptr);
+            vkDestroyFence(m_Device, m_InFlightFences[i], nullptr);
+        }
+        for (const auto semaphore: m_RenderFinishedSemaphores) {
+            vkDestroySemaphore(m_Device, semaphore, nullptr);
+        }
 
-        GetTextureManager()->GraphicMemoryCleanup();
+        // 7. Destroy Pipeline and Layouts
+        vkDestroyPipeline(m_Device, m_GraphicsPipeline, nullptr);
+        vkDestroyPipelineLayout(m_Device, m_PipelineLayout, nullptr);
+        vkDestroyDescriptorSetLayout(m_Device, m_DescriptorSetLayout, nullptr);
+        vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
+        vkDestroySampler(m_Device, m_TextureSampler, nullptr);
+
+        // 8. Destroy Command Pools and Render Pass
+        vkDestroyRenderPass(m_Device, m_MainRenderPass, nullptr);
+        vkDestroyCommandPool(m_Device, m_GraphicsCommandPool, nullptr);
+        vkDestroyCommandPool(m_Device, m_TransferCommandPool, nullptr);
+
+        DumpVmaStats();
+
+        // 9. Destroy Allocator and Device (Bottom-most child objects)
+        vmaDestroyAllocator(m_Allocator);
+        vkDestroyDevice(m_Device, nullptr);
+
+        // 10. Destroy Instance-level objects
+        vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
+        Utils::DestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
+        vkDestroyInstance(m_Instance, nullptr);
+
+        // 11. Windowing
+        glfwDestroyWindow(m_Window);
+        glfwTerminate();
     }
 
     void Renderer::Reset() {

@@ -65,7 +65,7 @@ void Editor::UI::Viewport::Draw(const char *title, VeeEditor *editor) {
             const ImVec2 imageMin = ImGui::GetItemRectMin();
             const auto normX = (mouseX - imageMin.x) / viewportPanelSize.x,
                     normY = (mouseY - imageMin.y) / viewportPanelSize.y;
-            editor->HandleEntitySelectionWithinViewport(normX, normY);
+            editor->RequestEntitySelectionWithinViewport(normX, normY);
         }
     }
     ImGui::End();

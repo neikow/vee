@@ -71,8 +71,6 @@ public:
 
     void EnqueuePostInitTask(const RendererInitTask &task);
 
-    void EnqueueCleanupTask(const RendererCleanupTask &task);
-
     virtual ~AbstractRenderer() = default;
 
     virtual void PrepareForRendering() {
@@ -80,8 +78,6 @@ public:
 
 protected:
     void ExecuteInitTasks();
-
-    void ExecuteCleanupTasks();
 };
 
 

@@ -132,6 +132,8 @@ namespace Vulkan {
         void DestroySwapchain(const VkSwapchainKHR &swapchain) const;
 
         VkShaderModule CreateShaderModule(const VkShaderModuleCreateInfo &shaderModuleCreateInfo) const;
+
+        VkPipelineLayout CreatePipelineLayout(const VkPipelineLayoutCreateInfo &pipeline_layout_info) const;
     };
 }
 

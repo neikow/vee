@@ -6,6 +6,7 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
 
+#include "pipeline_builder.h"
 #include "shader_module_cache.h"
 #include "../abstract.h"
 #include "../window.h"
@@ -52,6 +53,7 @@ namespace Vulkan {
         VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
         std::vector<VkDescriptorSet> m_DescriptorSets;
 
+        std::shared_ptr<PipelineCache> m_PipelineCache;
         VkPipelineLayout m_PipelineLayout = VK_NULL_HANDLE;
         VkPipeline m_GraphicsPipeline = VK_NULL_HANDLE;
 
@@ -198,8 +200,6 @@ namespace Vulkan {
         ) const;
 
         void CreateDepthResources();
-
-        [[nodiscard]] VkShaderModule CreateShaderModule(const std::vector<uint32_t> &code) const;
 
         void CreateGraphicsPipeline();
 

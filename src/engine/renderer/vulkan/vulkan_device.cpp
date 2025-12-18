@@ -583,3 +583,20 @@ VkShaderModule Vulkan::VulkanDevice::CreateShaderModule(const VkShaderModuleCrea
     }
     return shaderModule;
 }
+
+VkPipelineLayout Vulkan::VulkanDevice::CreatePipelineLayout(
+    const VkPipelineLayoutCreateInfo &pipeline_layout_info) const {
+    VkPipelineLayout pipelineLayout;
+    if (
+        vkCreatePipelineLayout(
+            m_Device,
+            &pipeline_layout_info,
+            nullptr,
+            &pipelineLayout
+        ) != VK_SUCCESS
+    ) {
+        throw std::runtime_error("Failed to create pipeline layout.");
+    }
+
+    return pipelineLayout;
+}

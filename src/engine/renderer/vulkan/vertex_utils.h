@@ -8,9 +8,9 @@ namespace Vulkan {
     struct VertexUtils {
         static VkVertexInputBindingDescription GetBindingDescription();
 
-        static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions();
+        static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions();
 
-        static std::array<VkVertexInputAttributeDescription, 1> GetPickingAttributeDescriptions();
+        static std::vector<VkVertexInputAttributeDescription> GetPositionAttributeDescriptions();
     };
 }
 

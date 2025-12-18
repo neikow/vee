@@ -8,7 +8,7 @@ layout(push_constant) uniform PushConstants {
     uint entityId;
 } pcs;
 
-const uint RESERVER_ID = 0u;
+const uint RESERVED_ID = 0u;
 
 void main() {
     outColor = pcs.entityId;

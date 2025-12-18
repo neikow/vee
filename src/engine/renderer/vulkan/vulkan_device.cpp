@@ -406,14 +406,15 @@ Vulkan::SwapChainSupportDetails Vulkan::VulkanDevice::QuerySwapChainSupport(cons
 
 void Vulkan::VulkanDevice::Cleanup() const {
     vmaDestroyAllocator(m_Allocator);
+
+    vkDestroyCommandPool(m_Device, m_GraphicsCommandPool, nullptr);
+    vkDestroyCommandPool(m_Device, m_TransferCommandPool, nullptr);
+
     vkDestroyDevice(m_Device, nullptr);
 
     vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
     Utils::DestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
     vkDestroyInstance(m_Instance, nullptr);
-
-    vkDestroyCommandPool(m_Device, m_GraphicsCommandPool, nullptr);
-    vkDestroyCommandPool(m_Device, m_TransferCommandPool, nullptr);
 }
 
 void Vulkan::VulkanDevice::DestroyImageView(const VkImageView &imageView) const {

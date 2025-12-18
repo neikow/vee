@@ -182,7 +182,7 @@ namespace Vulkan {
             VkImageTiling tiling,
             VkImageUsageFlags usage,
             VmaMemoryUsage vmaUsage, VkImage &image, VmaAllocation &allocation, const char *debugName
-        );
+        ) const;
 
         [[nodiscard]] VkCommandBuffer BeginSingleTimeCommands(const VkCommandPool &commandPool) const;
 

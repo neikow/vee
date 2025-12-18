@@ -396,14 +396,15 @@ void Vulkan::RendererWithUi::CleanupViewportResources() const {
 }
 
 void Vulkan::RendererWithUi::CreatePickingPipeline() {
+    using namespace Shaders;
     // TODO: Pre-compile these shaders
-    const auto vertShaderCode = Shaders::CompileFromFile(
+    const auto vertShaderCode = CompileFromFile(
         "../src/editor/renderer/shaders/picking/picking.vert",
-        shaderc_vertex_shader
+        ShaderType::Vertex
     );
-    const auto fragShaderCode = Shaders::CompileFromFile(
+    const auto fragShaderCode = CompileFromFile(
         "../src/editor/renderer/shaders/picking/picking.frag",
-        shaderc_fragment_shader
+        ShaderType::Fragment
     );
 
     const auto vertShaderModule = CreateShaderModule(vertShaderCode);

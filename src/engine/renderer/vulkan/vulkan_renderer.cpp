@@ -16,59 +16,7 @@
 
 static constexpr uint8_t DEFAULT_PURPLE_PIXEL[4] = {255, 0, 255, 255};
 
-//language=GLSL
-auto vertexShader = R"(
-        #version 450
-
-        layout(push_constant) uniform PushConstants {
-            mat4 model;
-            uint textureId;
-            uint entityId;
-        } pcs;
-
-        layout(binding = 0) uniform UniformBufferObject {
-            mat4 view;
-            mat4 proj;
-        } ubo;
-
-        layout(location = 0) in vec3 inPosition;
-        layout(location = 1) in vec3 inColor;
-        layout(location = 2) in vec2 inTexCoord;
-
-        layout(location = 0) out vec3 fragColor;
-        layout(location = 1) out vec2 fragTexCoord;
-
-        void main() {
-            gl_Position = ubo.proj * ubo.view * pcs.model * vec4(inPosition, 1.0);
-            fragColor = inColor;
-            fragTexCoord = inTexCoord;
-        }
-    )";
-
 constexpr int MAX_TEXTURES = 2048;
-
-//language=GLSL
-auto fragmentShader = R"(
-        #version 450
-        #extension GL_EXT_nonuniform_qualifier : require
-
-        layout(location = 0) in vec3 fragColor;
-        layout(location = 1) in vec2 fragTexCoord;
-
-        layout(location = 0) out vec4 outColor;
-
-        layout(push_constant) uniform PushConstants {
-            mat4 model;
-            uint textureId;
-        } pcs;
-
-        layout (set = 0, binding = 1) uniform sampler textureSampler;
-        layout (set = 0, binding = 2) uniform texture2D textures[];
-
-        void main() {
-            outColor = texture(sampler2D(textures[pcs.textureId], textureSampler), fragTexCoord * 1.0f);
-        }
-    )";
 
 namespace Vulkan {
     std::shared_ptr<VulkanDevice> Renderer::GetDevice() const {
@@ -720,7 +668,7 @@ namespace Vulkan {
         VkImage &image,
         VmaAllocation &allocation,
         const char *debugName
-    ) {
+    ) const {
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -925,15 +873,15 @@ namespace Vulkan {
     }
 
     void Renderer::CreateGraphicsPipeline() {
-        auto compiledFrag = Shaders::Compile(
-            fragmentShader,
-            shaderc_fragment_shader,
-            "shader.frag"
+        using namespace Shaders;
+
+        auto compiledVertex = CompileFromFile(
+            "../src/engine/renderer/vulkan/shaders/main.vert",
+            ShaderType::Vertex
         );
-        auto compiledVertex = Shaders::Compile(
-            vertexShader,
-            shaderc_vertex_shader,
-            "shader.vert"
+        auto compiledFrag = Shaders::CompileFromFile(
+            "../src/engine/renderer/vulkan/shaders/main.frag",
+            ShaderType::Fragment
         );
 
         const auto vertShaderModule = CreateShaderModule(compiledVertex);

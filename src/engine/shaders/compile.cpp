@@ -11,7 +11,7 @@ constexpr shaderc_optimization_level optimizationLevel = shaderc_optimization_le
 namespace Shaders {
     std::vector<uint32_t> Compile(
         const std::string &source_code,
-        const shaderc_shader_kind shader_kind,
+        const ShaderType type,
         const std::string &filename
     ) {
         const shaderc::Compiler compiler;
@@ -21,7 +21,10 @@ namespace Shaders {
         options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_0);
 
         const shaderc::SpvCompilationResult result = compiler.CompileGlslToSpv(
-            source_code, shader_kind, filename.c_str(), options
+            source_code,
+            static_cast<shaderc_shader_kind>(type),
+            filename.c_str(),
+            options
         );
 
         if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
@@ -34,7 +37,7 @@ namespace Shaders {
 
     std::vector<uint32_t> CompileFromFile(
         const std::string &filepath,
-        const shaderc_shader_kind shader_kind
+        const ShaderType type
     ) {
         std::ifstream file(filepath);
         if (!file.is_open()) {
@@ -45,6 +48,6 @@ namespace Shaders {
         const std::string source((std::istreambuf_iterator(file)),
                                  std::istreambuf_iterator<char>());
 
-        return Compile(source, shader_kind, filepath);
+        return Compile(source, type, filepath);
     }
 }

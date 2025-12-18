@@ -130,6 +130,8 @@ namespace Vulkan {
         void DestroySampler(const VkSampler &sampler) const;
 
         void DestroySwapchain(const VkSwapchainKHR &swapchain) const;
+
+        VkShaderModule CreateShaderModule(const VkShaderModuleCreateInfo &shaderModuleCreateInfo) const;
     };
 }
 

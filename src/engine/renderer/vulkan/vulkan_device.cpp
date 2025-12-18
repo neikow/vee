@@ -528,7 +528,7 @@ VkDescriptorPool Vulkan::VulkanDevice::CreateDescriptorPool(
             &descriptorPool
         ) != VK_SUCCESS
     ) {
-        throw std::runtime_error("failed to create ImGui descriptor pool!");
+        throw std::runtime_error("Failed to create descriptor pool.");
     }
     return descriptorPool;
 }
@@ -567,4 +567,19 @@ void Vulkan::VulkanDevice::DestroySampler(const VkSampler &sampler) const {
 
 void Vulkan::VulkanDevice::DestroySwapchain(const VkSwapchainKHR &swapchain) const {
     vkDestroySwapchainKHR(m_Device, swapchain, nullptr);
+}
+
+VkShaderModule Vulkan::VulkanDevice::CreateShaderModule(const VkShaderModuleCreateInfo &shaderModuleCreateInfo) const {
+    VkShaderModule shaderModule;
+    if (
+        vkCreateShaderModule(
+            m_Device,
+            &shaderModuleCreateInfo,
+            nullptr,
+            &shaderModule
+        ) != VK_SUCCESS
+    ) {
+        throw std::runtime_error("Failed to create shader module.");
+    }
+    return shaderModule;
 }

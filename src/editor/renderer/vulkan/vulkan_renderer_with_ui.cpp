@@ -398,17 +398,18 @@ void Vulkan::RendererWithUi::CleanupViewportResources() const {
 void Vulkan::RendererWithUi::CreatePickingPipeline() {
     using namespace Shaders;
     // TODO: Pre-compile these shaders
-    const auto vertShaderCode = CompileFromFile(
-        "../src/editor/renderer/shaders/picking/picking.vert",
+
+    const auto vertPath = "../src/editor/renderer/shaders/picking/picking.vert";
+    const auto fragPath = "../src/editor/renderer/shaders/picking/picking.frag";
+
+    const auto vertShaderModule = m_ShaderModuleCache->GetOrCreateShaderModule(
+        vertPath,
         ShaderType::Vertex
     );
-    const auto fragShaderCode = CompileFromFile(
-        "../src/editor/renderer/shaders/picking/picking.frag",
+    const auto fragShaderModule = m_ShaderModuleCache->GetOrCreateShaderModule(
+        fragPath,
         ShaderType::Fragment
     );
-
-    const auto vertShaderModule = CreateShaderModule(vertShaderCode);
-    const auto fragShaderModule = CreateShaderModule(fragShaderCode);
 
     const VkPipelineShaderStageCreateInfo vertShaderStageInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -553,8 +554,14 @@ void Vulkan::RendererWithUi::CreatePickingPipeline() {
 
     m_PickingPipeline = m_Device->CreatePipeline(pipelineCreateInfo);
 
-    m_Device->DestroyShaderModule(fragShaderModule);
-    m_Device->DestroyShaderModule(vertShaderModule);
+    m_ShaderModuleCache->DestroyShaderModule(
+        fragPath,
+        ShaderType::Fragment
+    );
+    m_ShaderModuleCache->DestroyShaderModule(
+        vertPath,
+        ShaderType::Vertex
+    );
 }
 
 void Vulkan::RendererWithUi::RenderToScreen(const VkCommandBuffer &cmd) {

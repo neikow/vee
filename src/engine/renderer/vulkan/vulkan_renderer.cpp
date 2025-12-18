@@ -847,45 +847,20 @@ namespace Vulkan {
         );
     }
 
-    VkShaderModule Renderer::CreateShaderModule(
-        const std::vector<uint32_t> &code
-    ) const {
-        // TOOD: create a ShaderManager
-
-        VkShaderModuleCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-        createInfo.codeSize = code.size() * sizeof(uint32_t);
-        createInfo.pCode = code.data();
-
-        VkShaderModule shaderModule;
-        if (
-            vkCreateShaderModule(
-                m_Device->GetLogicalDevice(),
-                &createInfo,
-                nullptr,
-                &shaderModule
-            ) != VK_SUCCESS
-        ) {
-            throw std::runtime_error("failed to create shader module!");
-        }
-
-        return shaderModule;
-    }
-
     void Renderer::CreateGraphicsPipeline() {
         using namespace Shaders;
 
-        auto compiledVertex = CompileFromFile(
-            "../src/engine/renderer/vulkan/shaders/main.vert",
+        const auto vertexPath = "../src/engine/renderer/vulkan/shaders/main.vert";
+        const auto fragmentPath = "../src/engine/renderer/vulkan/shaders/main.frag";
+
+        const auto vertShaderModule = m_ShaderModuleCache->GetOrCreateShaderModule(
+            vertexPath,
             ShaderType::Vertex
         );
-        auto compiledFrag = Shaders::CompileFromFile(
-            "../src/engine/renderer/vulkan/shaders/main.frag",
+        const auto fragShaderModule = m_ShaderModuleCache->GetOrCreateShaderModule(
+            fragmentPath,
             ShaderType::Fragment
         );
-
-        const auto vertShaderModule = CreateShaderModule(compiledVertex);
-        const auto fragShaderModule = CreateShaderModule(compiledFrag);
 
         VkPushConstantRange pushConstantRange{};
         pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -1052,8 +1027,14 @@ namespace Vulkan {
             throw std::runtime_error("failed to create graphics pipeline!");
         }
 
-        vkDestroyShaderModule(m_Device->GetLogicalDevice(), fragShaderModule, nullptr);
-        vkDestroyShaderModule(m_Device->GetLogicalDevice(), vertShaderModule, nullptr);
+        m_ShaderModuleCache->DestroyShaderModule(
+            vertexPath,
+            ShaderType::Vertex
+        );
+        m_ShaderModuleCache->DestroyShaderModule(
+            fragmentPath,
+            ShaderType::Fragment
+        );
     }
 
     void Renderer::CreateDescriptorSetLayout() {
@@ -1285,7 +1266,8 @@ namespace Vulkan {
               )
           ),
           m_Window(window),
-          m_Device(std::make_shared<VulkanDevice>(window)) {
+          m_Device(std::make_shared<VulkanDevice>(window)),
+          m_ShaderModuleCache(std::make_shared<ShaderModuleCache>(m_Device)) {
     }
 
     void Renderer::Initialize(

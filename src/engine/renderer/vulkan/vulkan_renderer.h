@@ -6,6 +6,7 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
 
+#include "shader_module_cache.h"
 #include "../abstract.h"
 #include "../window.h"
 #include "../../models/mesh_manager/mesh_manager.h"
@@ -36,6 +37,7 @@ namespace Vulkan {
         bool m_FramebufferResized = false;
 
         std::shared_ptr<VulkanDevice> m_Device;
+        std::shared_ptr<ShaderModuleCache> m_ShaderModuleCache;
 
         VkSwapchainKHR m_SwapChain = VK_NULL_HANDLE;
         std::vector<VkImage> m_SwapChainImages;

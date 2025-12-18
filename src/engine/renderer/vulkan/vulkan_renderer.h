@@ -164,14 +164,14 @@ namespace Vulkan {
             VkBufferUsageFlags usage,
             VmaMemoryUsage vmaUsage,
             VmaAllocationCreateFlags allocationFlags, VkBuffer &buffer, VmaAllocation &allocation, const char *debugName
-        );
+        ) const;
 
         void CopyBufferToImage(
             const VkBuffer &buffer,
             const VkImage &image,
             uint32_t width,
             uint32_t height
-        );
+        ) const;
 
         void CreateFramebuffers();
 
@@ -186,18 +186,18 @@ namespace Vulkan {
 
         [[nodiscard]] VkCommandBuffer BeginSingleTimeCommands(const VkCommandPool &commandPool) const;
 
-        void EndSingleTimeCommands(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool commandPool);
+        void EndSingleTimeCommands(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool commandPool) const;
 
         void TransitionImageLayout(
             const VkImage &image,
             VkFormat format,
             VkImageLayout oldLayout,
             VkImageLayout newLayout
-        );
+        ) const;
 
         void CreateDepthResources();
 
-        [[nodiscard]] VkShaderModule CreateShaderModule(const std::vector<uint32_t> &code);
+        [[nodiscard]] VkShaderModule CreateShaderModule(const std::vector<uint32_t> &code) const;
 
         void CreateGraphicsPipeline();
 
@@ -209,7 +209,7 @@ namespace Vulkan {
             const VkImage &image,
             VkFormat format,
             VkImageAspectFlags aspectFlags
-        );
+        ) const;
 
         void CreateImageViews();
 

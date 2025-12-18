@@ -558,7 +558,7 @@ namespace Vulkan {
         VkBuffer &buffer,
         VmaAllocation &allocation,
         const char *debugName
-    ) {
+    ) const {
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferInfo.size = size;
@@ -588,7 +588,7 @@ namespace Vulkan {
         const VkImage &image,
         const uint32_t width,
         const uint32_t height
-    ) {
+    ) const {
         const VkCommandBuffer commandBuffer = BeginSingleTimeCommands(
             m_Device->GetTransferCommandPool()
         );
@@ -728,7 +728,7 @@ namespace Vulkan {
         const VkCommandBuffer commandBuffer,
         const VkQueue queue,
         const VkCommandPool commandPool
-    ) {
+    ) const {
         vkEndCommandBuffer(commandBuffer);
 
         VkSubmitInfo submitInfo{};
@@ -752,7 +752,7 @@ namespace Vulkan {
         const VkFormat format,
         const VkImageLayout oldLayout,
         const VkImageLayout newLayout
-    ) {
+    ) const {
         const VkCommandBuffer commandBuffer = BeginSingleTimeCommands(
             m_Device->GetTransferCommandPool()
         );
@@ -849,7 +849,7 @@ namespace Vulkan {
 
     VkShaderModule Renderer::CreateShaderModule(
         const std::vector<uint32_t> &code
-    ) {
+    ) const {
         // TOOD: create a ShaderManager
 
         VkShaderModuleCreateInfo createInfo{};
@@ -1192,7 +1192,7 @@ namespace Vulkan {
         const VkImage &image,
         const VkFormat format,
         const VkImageAspectFlags aspectFlags
-    ) {
+    ) const {
         VkImageViewCreateInfo viewInfo{};
         viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         viewInfo.image = image;

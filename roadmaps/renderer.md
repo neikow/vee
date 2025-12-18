@@ -25,7 +25,7 @@ Goal: Break the monolithic Renderer class into smaller, specialized units.
     - [x] Move Instance, Physical Device, Logical Device, and Queue management here.
 
 - [ ] Create a Shader & Pipeline Cache
-    - [ ] Implement a system that loads SPIR-V from files.
+    - [x] Implement a system that loads SPIR-V from files.
     - [ ] Create a hash for Pipeline states so you don't recreate identical pipelines.
     - [ ] Encapsulate the Swapchain
     - [ ] Move VkSwapchainKHR, ImageViews, and Framebuffers into a VulkanSwapchain class.

@@ -169,7 +169,7 @@ void Vulkan::RendererWithUi::UpdatePickingResult() {
         return;
     }
 
-    const auto allocInfo = m_Device->GetAllocationInfo(m_PickingAllocation);
+    const auto allocInfo = m_Device->GetAllocationInfo(m_PickingRequest.allocation);
     if (allocInfo.pMappedData) {
         std::memcpy(&m_LastPickedEntityID, allocInfo.pMappedData, sizeof(uint32_t));
     }

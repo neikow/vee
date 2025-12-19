@@ -128,7 +128,7 @@ namespace Vulkan {
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         );
 
-        info.imageView = renderer->CreateImageView(
+        info.imageView = renderer->GetDevice()->CreateImageView(
             info.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT
         );
 

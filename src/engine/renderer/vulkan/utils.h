@@ -39,7 +39,7 @@ namespace Vulkan::Utils {
 
     VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
 
-    VkExtent2D ChooseSwapExtent(GLFWwindow *window, const VkSurfaceCapabilitiesKHR &capabilities);
+    VkExtent2D ChooseSwapExtent(const VkExtent2D &targetExtent, const VkSurfaceCapabilitiesKHR &capabilities);
 
     VkFormat FindSupportedFormat(
         const VkPhysicalDevice &physicalDevice,

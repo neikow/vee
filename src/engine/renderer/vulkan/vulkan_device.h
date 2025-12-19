@@ -4,6 +4,7 @@
 #include <map>
 #include <set>
 
+#include "swapchain.h"
 #include "types.h"
 #include "vulkan_renderer.h"
 
@@ -58,7 +59,7 @@ namespace Vulkan {
 
         [[nodiscard]] VkSurfaceKHR &GetSurface();
 
-        void Initialize(const std::string &appName, const uint32_t version);
+        void Initialize(const std::string &appName, uint32_t version);
 
         void WaitIdle() const;
 
@@ -75,13 +76,13 @@ namespace Vulkan {
             uint32_t version
         );
 
-        int RateDeviceSuitability(const VkPhysicalDevice &physicalDevice) const;
+        [[nodiscard]] int RateDeviceSuitability(const VkPhysicalDevice &physicalDevice) const;
 
-        QueueFamilyIndices FindQueueFamilies(const VkPhysicalDevice &physicalDevice) const;
+        [[nodiscard]] QueueFamilyIndices FindQueueFamilies(const VkPhysicalDevice &physicalDevice) const;
 
         void CreateCommandPools();
 
-        SwapChainSupportDetails QuerySwapChainSupport(const VkPhysicalDevice &device) const;
+        [[nodiscard]] SwapChainSupportDetails QuerySwapChainSupport(const VkPhysicalDevice &device) const;
 
         void Cleanup() const;
 
@@ -95,47 +96,89 @@ namespace Vulkan {
 
         void DestroyBuffer(const VkBuffer &buffer, const VmaAllocation &allocation) const;
 
-        VkCommandPool GetTransferCommandPool() const;
+        [[nodiscard]] VkCommandPool GetTransferCommandPool() const;
 
-        VkCommandPool GetGraphicsCommandPool() const;
+        [[nodiscard]] VkCommandPool GetGraphicsCommandPool() const;
 
-        VmaAllocationInfo GetAllocationInfo(const VmaAllocation &allocation) const;
+        [[nodiscard]] VmaAllocationInfo GetAllocationInfo(
+            const VmaAllocation &allocation
+        ) const;
 
-        VkFramebuffer CreateFramebuffer(const VkFramebufferCreateInfo &framebufferCreateInfo) const;
+        [[nodiscard]] VkFramebuffer CreateFramebuffer(
+            const VkFramebufferCreateInfo &framebufferCreateInfo
+        ) const;
 
-        VkRenderPass CreateRenderPass(const VkRenderPassCreateInfo &renderPassCreateInfo) const;
+        [[nodiscard]] VkRenderPass CreateRenderPass(
+            const VkRenderPassCreateInfo &renderPassCreateInfo
+        ) const;
 
-        VkPipeline CreatePipeline(const VkGraphicsPipelineCreateInfo &pipelineCreateInfo) const;
+        [[nodiscard]] VkPipeline CreatePipeline(
+            const VkGraphicsPipelineCreateInfo &pipelineCreateInfo
+        ) const;
 
-        void DestroyFramebuffer(const VkFramebuffer &framebuffer) const;
+        void DestroyFramebuffer(
+            const VkFramebuffer &framebuffer
+        ) const;
 
-        void DestroyShaderModule(const VkShaderModule &shaderModule) const;
+        void DestroyShaderModule(
+            const VkShaderModule &shaderModule
+        ) const;
 
-        VkDescriptorPool CreateDescriptorPool(const VkDescriptorPoolCreateInfo &descriptorPoolCreateInfo) const;
+        [[nodiscard]] VkDescriptorPool CreateDescriptorPool(
+            const VkDescriptorPoolCreateInfo &descriptorPoolCreateInfo
+        ) const;
 
-        void DestroyDescriptorPool(const VkDescriptorPool &descriptorPool) const;
+        void DestroyDescriptorPool(
+            const VkDescriptorPool &descriptorPool
+        ) const;
 
-        void DestroyRenderPass(const VkRenderPass &renderPass) const;
+        void DestroyRenderPass(
+            const VkRenderPass &renderPass
+        ) const;
 
-        void DestroyPipeline(const VkPipeline &pipeline) const;
+        void DestroyPipeline(
+            const VkPipeline &pipeline
+        ) const;
 
-        void DestroySemaphore(const VkSemaphore &semaphore) const;
+        void DestroySemaphore(
+            const VkSemaphore &semaphore
+        ) const;
 
-        void DestroyFence(const VkFence &fence) const;
+        void DestroyFence(
+            const VkFence &fence
+        ) const;
 
-        void DestroyPipelineLayout(const VkPipelineLayout &pipelineLayout) const;
+        void DestroyPipelineLayout(
+            const VkPipelineLayout &pipelineLayout
+        ) const;
 
-        void DestroyDescriptorSetLayout(const VkDescriptorSetLayout &descriptorSetLayout) const;
+        void DestroyDescriptorSetLayout(
+            const VkDescriptorSetLayout &descriptorSetLayout
+        ) const;
 
-        void DestroySampler(const VkSampler &sampler) const;
+        void DestroySampler(
+            const VkSampler &sampler
+        ) const;
 
-        void DestroySwapchain(const VkSwapchainKHR &swapchain) const;
+        void DestroySwapchain(
+            const VkSwapchainKHR &swapchain
+        ) const;
 
-        VkShaderModule CreateShaderModule(const VkShaderModuleCreateInfo &shaderModuleCreateInfo) const;
+        [[nodiscard]] VkShaderModule CreateShaderModule(
+            const VkShaderModuleCreateInfo &shaderModuleCreateInfo
+        ) const;
 
-        VkPipelineLayout CreatePipelineLayout(const VkPipelineLayoutCreateInfo &pipeline_layout_info) const;
+        [[nodiscard]] VkPipelineLayout CreatePipelineLayout(
+            const VkPipelineLayoutCreateInfo &pipeline_layout_info
+        ) const;
+
+        VkImageView CreateImageView(
+            const VkImage &image,
+            const VkFormat &format,
+            VkImageAspectFlagBits aspectFlags
+        );
     };
 }
 
 
-#endif //VEE_VULKAN_DEVICE_H
+#endif

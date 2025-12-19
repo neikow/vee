@@ -5,6 +5,10 @@
 
 #include "../io/input_system.h"
 
+struct Extent {
+    int width;
+    int height;
+};
 
 class Window {
     GLFWwindow *m_Window = nullptr;
@@ -18,11 +22,13 @@ public:
 
     void SetResizeCallback(GLFWframebuffersizefun callback) const;
 
-    GLFWwindow *GetWindow() const;
+    [[nodiscard]] GLFWwindow *GetWindow() const;
 
-    void Destroy() const;;
+    void Destroy() const;
 
-    bool ShouldClose() const;
+    [[nodiscard]] Extent &GetExtent() const;
+
+    [[nodiscard]] bool ShouldClose() const;
 };
 
 

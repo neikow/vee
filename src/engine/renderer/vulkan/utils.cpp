@@ -147,27 +147,21 @@ namespace Vulkan::Utils {
     }
 
     VkExtent2D ChooseSwapExtent(
-        GLFWwindow *window,
+        const VkExtent2D &targetExtent,
         const VkSurfaceCapabilitiesKHR &capabilities
     ) {
         if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
             return capabilities.currentExtent;
         }
 
-        int width, height;
-        glfwGetFramebufferSize(window, &width, &height);
-
-        VkExtent2D actualExtent = {
-            static_cast<uint32_t>(width),
-            static_cast<uint32_t>(height)
+        const VkExtent2D extent{
+            .width = std::clamp(targetExtent.width, capabilities.minImageExtent.width,
+                                capabilities.maxImageExtent.width),
+            .height = std::clamp(targetExtent.height, capabilities.minImageExtent.height,
+                                 capabilities.maxImageExtent.height)
         };
 
-        actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width,
-                                        capabilities.maxImageExtent.width);
-        actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height,
-                                         capabilities.maxImageExtent.height);
-
-        return actualExtent;
+        return extent;
     }
 
     VkFormat FindDepthFormat(

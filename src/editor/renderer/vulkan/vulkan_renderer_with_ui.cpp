@@ -222,7 +222,7 @@ void Vulkan::RendererWithUi::InitImgui() {
     initInfo.Queue = m_Device->GetGraphicsQueue();
     initInfo.QueueFamily = m_Device->FindQueueFamilies(m_Device->GetPhysicalDevice()).graphicsFamily.value();
     initInfo.DescriptorPool = m_ImguiDescriptorPool;
-    initInfo.ImageCount = m_SwapChainImages.size();
+    initInfo.ImageCount = m_Swapchain->GetImageCount();
     initInfo.MinImageCount = MAX_FRAMES_IN_FLIGHT;
     initInfo.PipelineCache = VK_NULL_HANDLE;
     initInfo.PipelineInfoMain.RenderPass = m_MainRenderPass;
@@ -236,9 +236,10 @@ void Vulkan::RendererWithUi::InitImgui() {
 }
 
 void Vulkan::RendererWithUi::CreatePickingResources() {
+    const auto extent = m_Swapchain->GetExtent();
     CreateImage(
-        m_SwapChainExtent.width,
-        m_SwapChainExtent.height,
+        extent.width,
+        extent.height,
         VK_FORMAT_R32_UINT,
         VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
@@ -248,7 +249,7 @@ void Vulkan::RendererWithUi::CreatePickingResources() {
         "Picking Image"
     );
 
-    m_PickingImageView = CreateImageView(m_PickingImage, VK_FORMAT_R32_UINT, VK_IMAGE_ASPECT_COLOR_BIT);
+    m_PickingImageView = m_Device->CreateImageView(m_PickingImage, VK_FORMAT_R32_UINT, VK_IMAGE_ASPECT_COLOR_BIT);
 
     const std::array attachments = {
         m_PickingImageView,
@@ -260,8 +261,8 @@ void Vulkan::RendererWithUi::CreatePickingResources() {
         .renderPass = m_PickingRenderPass,
         .attachmentCount = attachments.size(),
         .pAttachments = attachments.data(),
-        .width = m_SwapChainExtent.width,
-        .height = m_SwapChainExtent.height,
+        .width = extent.width,
+        .height = extent.height,
         .layers = 1
     };
 
@@ -348,19 +349,23 @@ void Vulkan::RendererWithUi::CreatePickingRenderPass() {
 
 void Vulkan::RendererWithUi::CreateViewportResources() {
     if (m_ViewportExtent.width == 0 || m_ViewportExtent.height == 0) {
-        m_ViewportExtent = m_SwapChainExtent;
+        m_ViewportExtent = m_Swapchain->GetExtent();
     }
 
     CreateImage(
         m_ViewportExtent.width, m_ViewportExtent.height,
-        m_SwapChainImageFormat, VK_IMAGE_TILING_OPTIMAL,
+        m_Swapchain->GetFormat(), VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
         m_ViewportImage, m_ViewportAllocation,
         "Viewport Image"
     );
 
-    m_ViewportImageView = CreateImageView(m_ViewportImage, m_SwapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+    m_ViewportImageView = m_Device->CreateImageView(
+        m_ViewportImage,
+        m_Swapchain->GetFormat(),
+        VK_IMAGE_ASPECT_COLOR_BIT
+    );
 
     const std::array attachments = {
         m_ViewportImageView,
@@ -475,8 +480,8 @@ void Vulkan::RendererWithUi::RenderToScreen(const VkCommandBuffer &cmd) {
     VkRenderPassBeginInfo uiPassInfo{};
     uiPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     uiPassInfo.renderPass = m_MainRenderPass;
-    uiPassInfo.framebuffer = m_SwapChainFramebuffers[m_ImageIndex];
-    uiPassInfo.renderArea.extent = m_SwapChainExtent;
+    uiPassInfo.framebuffer = m_Swapchain->GetFramebuffer(m_ImageIndex);
+    uiPassInfo.renderArea.extent = m_Swapchain->GetExtent();
     uiPassInfo.clearValueCount = 0;
     std::array<VkClearValue, 2> clearValues{};
     clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};

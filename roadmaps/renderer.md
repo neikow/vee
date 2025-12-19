@@ -27,8 +27,8 @@ Goal: Break the monolithic Renderer class into smaller, specialized units.
 - [ ] Create a Shader & Pipeline Cache
     - [x] Implement a system that loads SPIR-V from files.
     - [x] Create a hash for Pipeline states so you don't recreate identical pipelines.
-    - [ ] Encapsulate the Swapchain
-    - [ ] Move VkSwapchainKHR, ImageViews, and Framebuffers into a VulkanSwapchain class.
+    - [x] Encapsulate the Swapchain
+    - [x] Move VkSwapchainKHR, ImageViews, and Framebuffers into a VulkanSwapchain class.
     - [ ] Simplify the RecreateSwapChain logic to be a single method call.
 
 ## Phase 3: The "Bindless" Revolution

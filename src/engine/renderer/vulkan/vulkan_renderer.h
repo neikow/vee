@@ -8,6 +8,7 @@
 
 #include "pipeline_builder.h"
 #include "shader_module_cache.h"
+#include "swapchain.h"
 #include "../abstract.h"
 #include "../window.h"
 #include "../../models/mesh_manager/mesh_manager.h"
@@ -38,14 +39,8 @@ namespace Vulkan {
         bool m_FramebufferResized = false;
 
         std::shared_ptr<VulkanDevice> m_Device;
+        std::shared_ptr<Swapchain> m_Swapchain;
         std::shared_ptr<ShaderModuleCache> m_ShaderModuleCache;
-
-        VkSwapchainKHR m_SwapChain = VK_NULL_HANDLE;
-        std::vector<VkImage> m_SwapChainImages;
-        VkFormat m_SwapChainImageFormat = VK_FORMAT_UNDEFINED;
-        VkExtent2D m_SwapChainExtent = {};
-        std::vector<VkImageView> m_SwapChainImageViews;
-        std::vector<VkFramebuffer> m_SwapChainFramebuffers;
 
         VkRenderPass m_MainRenderPass = VK_NULL_HANDLE;
 
@@ -126,8 +121,6 @@ namespace Vulkan {
 
         virtual void CreateGraphicsResources();
 
-        void SetSwapChainImageFormat();
-
         void CreatePipelinesAndShaders();
 
         void CreateBuffers();
@@ -135,8 +128,6 @@ namespace Vulkan {
         void CreateDescriptorAndSyncObjects();
 
         void RecreateSwapChain();
-
-        void CleanupSwapChain() const;
 
         void CreateSyncObjects();
 
@@ -177,8 +168,6 @@ namespace Vulkan {
             uint32_t height
         ) const;
 
-        void CreateFramebuffers();
-
         void CreateImage(
             uint32_t width,
             uint32_t height,
@@ -207,15 +196,7 @@ namespace Vulkan {
 
         void CreateMainRenderPass();
 
-        [[nodiscard]] VkImageView CreateImageView(
-            const VkImage &image,
-            VkFormat format,
-            VkImageAspectFlags aspectFlags
-        ) const;
-
-        void CreateImageViews();
-
-        void CreateSwapChain();
+        void CreateSwapChain() const;
 
         static void FramebufferResizeCallback(GLFWwindow *window, int, int);
 

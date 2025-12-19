@@ -24,6 +24,16 @@ void Window::Destroy() const {
     glfwTerminate();
 }
 
+Extent &Window::GetExtent() const {
+    int width, height;
+    glfwGetFramebufferSize(m_Window, &width, &height);
+    static Extent extent{
+        .width = width,
+        .height = height
+    };
+    return extent;
+}
+
 bool Window::ShouldClose() const {
     return glfwWindowShouldClose(m_Window);
 }

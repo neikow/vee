@@ -39,7 +39,7 @@ void Editor::UI::Viewport::Draw(const char *title, VeeEditor *editor) {
             static_cast<uint32_t>(viewportPanelSize.y)
         );
 
-        const VkDescriptorSet textureID = renderer->GetViewportDescriptorSet();
+        const VkDescriptorSet &textureID = renderer->GetViewportDescriptorSet();
 
         const char *label = engine->Paused() ? "Play >" : "Pause ||";
         if (ImGui::Button(label, ImVec2(80, 0))) {

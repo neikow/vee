@@ -54,10 +54,6 @@ namespace Vulkan {
 
         std::vector<VkCommandBuffer> m_CommandBuffers;
 
-        VkImage m_DepthImage = VK_NULL_HANDLE;
-        VmaAllocation m_DepthImageAllocation = VK_NULL_HANDLE;
-        VkImageView m_DepthImageView = VK_NULL_HANDLE;
-
         VkSampler m_TextureSampler = VK_NULL_HANDLE;
 
         std::vector<DrawCall> m_DrawQueue;
@@ -84,25 +80,45 @@ namespace Vulkan {
         uint32_t m_ImageIndex = 0;
         uint64_t m_CurrentVertexBufferSize = 0;
         uint64_t m_CurrentIndexBufferSize = 0;
+        unsigned long m_ResizeCallbackHandle = 0;
 
     public:
-        explicit Renderer(const std::shared_ptr<Window> &window);
+        explicit Renderer(
+            const std::shared_ptr<Window> &window
+        );
 
-        void Initialize(const std::string &appName, uint32_t version) override;
+        void Initialize(
+            const std::string &appName,
+            uint32_t version
+        ) override;
 
-        void RecordDrawQueue(const VkCommandBuffer &commandBuffer);
+        void RecordDrawQueue(
+            const VkCommandBuffer &commandBuffer
+        );
 
-        void RenderScene(const VkCommandBuffer &commandBuffer, const VkFramebuffer &framebuffer,
-                         VkExtent2D extent) const;
+        void RenderScene(
+            const VkCommandBuffer &commandBuffer,
+            const VkFramebuffer &framebuffer,
+            VkExtent2D extent
+        ) const;
 
-        virtual void RenderToScreen(const VkCommandBuffer &cmd);
+        virtual void RenderToScreen(
+            const VkCommandBuffer &cmd
+        );
 
         void Draw() override;
 
-        void UpdateCameraMatrix(const glm::mat4x4 &viewMatrix, const glm::mat4x4 &projectionMatrix) override;
+        void UpdateCameraMatrix(
+            const glm::mat4x4 &viewMatrix,
+            const glm::mat4x4 &projectionMatrix
+        ) override;
 
-        void SubmitDrawCall(std::uint32_t entityId, const glm::mat4x4 &worldMatrix, uint32_t meshId,
-                            uint32_t textureId) override;
+        void SubmitDrawCall(
+            std::uint32_t entityId,
+            const glm::mat4x4 &worldMatrix,
+            uint32_t meshId,
+            uint32_t textureId
+        ) override;
 
         void Cleanup() override;
 
@@ -113,6 +129,9 @@ namespace Vulkan {
         [[nodiscard]] std::shared_ptr<VulkanDevice> GetDevice() const;
 
         float GetAspectRatio() override;
+
+    protected:
+        virtual void AddResizeCallbacks();
 
     private:
         void InitVulkan();
@@ -127,7 +146,7 @@ namespace Vulkan {
 
         void CreateDescriptorAndSyncObjects();
 
-        void RecreateSwapChain();
+        void RecreateSwapChain() const;
 
         void CreateSyncObjects();
 
@@ -142,15 +161,19 @@ namespace Vulkan {
         void CreateIndexBuffer();
 
         template<typename T>
-        void UploadToBuffer(const VkBuffer &targetBuffer, const std::vector<T> &data, size_t size);
+        void UploadToBuffer(
+            const VkBuffer &targetBuffer,
+            const std::vector<T> &data,
+            size_t size
+        );
 
         void CreateVertexBuffer();
 
         void CopyBuffer(
-            VkBuffer srcBuffer,
-            VkBuffer dstBuffer,
-            VkDeviceSize size
-        );
+            const VkBuffer &srcBuffer,
+            const VkBuffer &dstBuffer,
+            const VkDeviceSize &size
+        ) const;
 
         void CreateTextureSampler();
 
@@ -168,28 +191,6 @@ namespace Vulkan {
             uint32_t height
         ) const;
 
-        void CreateImage(
-            uint32_t width,
-            uint32_t height,
-            VkFormat format,
-            VkImageTiling tiling,
-            VkImageUsageFlags usage,
-            VmaMemoryUsage vmaUsage, VkImage &image, VmaAllocation &allocation, const char *debugName
-        ) const;
-
-        [[nodiscard]] VkCommandBuffer BeginSingleTimeCommands(const VkCommandPool &commandPool) const;
-
-        void EndSingleTimeCommands(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool commandPool) const;
-
-        void TransitionImageLayout(
-            const VkImage &image,
-            VkFormat format,
-            VkImageLayout oldLayout,
-            VkImageLayout newLayout
-        ) const;
-
-        void CreateDepthResources();
-
         void CreateGraphicsPipeline();
 
         void CreateDescriptorSetLayout();
@@ -198,9 +199,9 @@ namespace Vulkan {
 
         void CreateSwapChain() const;
 
-        static void FramebufferResizeCallback(GLFWwindow *window, int, int);
-
-        void UpdateTextureDescriptor(TextureId textureId) override;
+        void UpdateTextureDescriptor(
+            TextureId textureId
+        ) override;
 
         void UpdateGeometryBuffers() override;
 

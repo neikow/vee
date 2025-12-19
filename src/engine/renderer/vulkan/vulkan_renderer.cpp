@@ -24,11 +24,6 @@ namespace Vulkan {
         return m_Device;
     }
 
-    void Renderer::FramebufferResizeCallback(GLFWwindow *window, int, int) {
-        const auto renderer = static_cast<Renderer *>(glfwGetWindowUserPointer(window));
-        renderer->m_FramebufferResized = true;
-    }
-
     void Renderer::UpdateTextureDescriptor(const TextureId textureId) {
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -111,7 +106,6 @@ namespace Vulkan {
 
 
     void Renderer::CreateGraphicsResources() {
-        CreateDepthResources();
         CreateSwapChain();
         CreateMissingTexture();
     }
@@ -216,8 +210,12 @@ namespace Vulkan {
         std::memcpy(data, DEFAULT_PURPLE_PIXEL, imageSize);
         m_Device->UnmapMemory(stagingAlloc);
 
-        CreateImage(
-            1, 1, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+        Utils::CreateImage(
+            m_Device,
+            1,
+            1,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
             VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
             m_DefaultTextureImage,
@@ -225,15 +223,21 @@ namespace Vulkan {
             "Missing Texture"
         );
 
-        TransitionImageLayout(
-            m_DefaultTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
+        Utils::TransitionImageLayout(
+            m_Device,
+            m_DefaultTextureImage,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_LAYOUT_UNDEFINED,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
         );
         CopyBufferToImage(
             stagingBuffer, m_DefaultTextureImage, 1, 1
         );
-        TransitionImageLayout(
-            m_DefaultTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        Utils::TransitionImageLayout(
+            m_Device,
+            m_DefaultTextureImage,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         );
 
@@ -485,8 +489,12 @@ namespace Vulkan {
         UploadToBuffer(m_VertexBuffer, vertices, requiredSize);
     }
 
-    void Renderer::CopyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, const VkDeviceSize size) {
-        const VkCommandBuffer commandBuffer = BeginSingleTimeCommands(m_Device->GetTransferCommandPool());
+    void Renderer::CopyBuffer(
+        const VkBuffer &srcBuffer,
+        const VkBuffer &dstBuffer,
+        const VkDeviceSize &size
+    ) const {
+        const VkCommandBuffer commandBuffer = m_Device->BeginSingleTimeCommands(m_Device->GetTransferCommandPool());
 
         VkBufferCopy copyRegion{};
         copyRegion.srcOffset = 0;
@@ -494,7 +502,11 @@ namespace Vulkan {
         copyRegion.size = size;
         vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
-        EndSingleTimeCommands(commandBuffer, m_Device->GetTransferQueue(), m_Device->GetTransferCommandPool());
+        m_Device->EndSingleTimeCommands(
+            commandBuffer,
+            m_Device->GetTransferQueue(),
+            m_Device->GetTransferCommandPool()
+        );
     }
 
     void Renderer::CreateTextureSampler() {
@@ -579,7 +591,7 @@ namespace Vulkan {
         const uint32_t width,
         const uint32_t height
     ) const {
-        const VkCommandBuffer commandBuffer = BeginSingleTimeCommands(
+        const VkCommandBuffer &commandBuffer = m_Device->BeginSingleTimeCommands(
             m_Device->GetTransferCommandPool()
         );
 
@@ -609,200 +621,10 @@ namespace Vulkan {
             &region
         );
 
-        EndSingleTimeCommands(
+        m_Device->EndSingleTimeCommands(
             commandBuffer,
             m_Device->GetTransferQueue(),
             m_Device->GetTransferCommandPool()
-        );
-    }
-
-    void Renderer::CreateImage(
-        const uint32_t width,
-        const uint32_t height,
-        const VkFormat format,
-        const VkImageTiling tiling,
-        const VkImageUsageFlags usage,
-        const VmaMemoryUsage vmaUsage,
-        VkImage &image,
-        VmaAllocation &allocation,
-        const char *debugName
-    ) const {
-        VkImageCreateInfo imageInfo{};
-        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.extent.width = width;
-        imageInfo.extent.height = height;
-        imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = 1;
-        imageInfo.arrayLayers = 1;
-        imageInfo.format = format;
-        imageInfo.tiling = tiling;
-        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageInfo.usage = usage;
-        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-
-        if (vkCreateImage(
-                m_Device->GetLogicalDevice(),
-                &imageInfo,
-                nullptr,
-                &image
-            ) != VK_SUCCESS
-        ) {
-            throw std::runtime_error("failed to create image!");
-        }
-
-        const VmaAllocationCreateInfo allocInfo = {.usage = vmaUsage};
-
-        vmaCreateImage(m_Device->GetAllocator(), &imageInfo, &allocInfo, &image, &allocation, nullptr);
-        vmaSetAllocationName(m_Device->GetAllocator(), allocation, debugName);
-    }
-
-    VkCommandBuffer Renderer::BeginSingleTimeCommands(
-        const VkCommandPool &commandPool
-    ) const {
-        VkCommandBufferAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandPool = commandPool;
-        allocInfo.commandBufferCount = 1;
-
-        VkCommandBuffer commandBuffer;
-        vkAllocateCommandBuffers(
-            m_Device->GetLogicalDevice(),
-            &allocInfo,
-            &commandBuffer
-        );
-
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-        vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-        return commandBuffer;
-    }
-
-    void Renderer::EndSingleTimeCommands(
-        const VkCommandBuffer commandBuffer,
-        const VkQueue queue,
-        const VkCommandPool commandPool
-    ) const {
-        vkEndCommandBuffer(commandBuffer);
-
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer;
-
-        vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(queue);
-
-        vkFreeCommandBuffers(
-            m_Device->GetLogicalDevice(),
-            commandPool,
-            1,
-            &commandBuffer
-        );
-    }
-
-    void Renderer::TransitionImageLayout(
-        const VkImage &image,
-        const VkFormat format,
-        const VkImageLayout oldLayout,
-        const VkImageLayout newLayout
-    ) const {
-        const VkCommandBuffer commandBuffer = BeginSingleTimeCommands(
-            m_Device->GetTransferCommandPool()
-        );
-
-        VkImageMemoryBarrier barrier{};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.oldLayout = oldLayout;
-        barrier.newLayout = newLayout;
-
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
-        barrier.image = image;
-
-        if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-
-            if (Utils::HasStencilComponent(format)) {
-                barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-            }
-        } else {
-            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        }
-
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
-
-        VkPipelineStageFlags sourceStage;
-        VkPipelineStageFlags destinationStage;
-
-        if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-            sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-            destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout ==
-                   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-            sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout ==
-                   VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-                                    VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-            sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-            destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-        } else {
-            throw std::invalid_argument("unsupported layout transition!");
-        }
-
-        vkCmdPipelineBarrier(
-            commandBuffer,
-            sourceStage, destinationStage,
-            0,
-            0, nullptr,
-            0, nullptr,
-            1, &barrier
-        );
-
-        EndSingleTimeCommands(commandBuffer, m_Device->GetTransferQueue(), m_Device->GetTransferCommandPool());
-    }
-
-    void Renderer::CreateDepthResources() {
-        const VkFormat depthFormat = Utils::FindDepthFormat(m_Device->GetPhysicalDevice());
-
-        const auto extent = m_Window->GetExtent();
-        CreateImage(
-            extent.width,
-            extent.height,
-            depthFormat,
-            VK_IMAGE_TILING_OPTIMAL,
-            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-            m_DepthImage,
-            m_DepthImageAllocation,
-            "Depth Image"
-        );
-
-        m_DepthImageView = m_Device->CreateImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-
-        TransitionImageLayout(
-            m_DepthImage,
-            depthFormat,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
         );
     }
 
@@ -1021,7 +843,7 @@ namespace Vulkan {
             .height = static_cast<uint32_t>(windowExtent.height)
         };
         m_Swapchain->Create(
-            extent, m_MainRenderPass, m_DepthImageView
+            extent, m_MainRenderPass
         );
     }
 
@@ -1038,17 +860,26 @@ namespace Vulkan {
           m_PipelineCache(std::make_shared<PipelineCache>()) {
     }
 
+    void Renderer::AddResizeCallbacks() {
+        m_ResizeCallbackHandle = m_Window->AddResizeCallback([this](Extent) {
+            this->m_FramebufferResized = true;
+        });
+    }
+
     void Renderer::Initialize(
         const std::string &appName,
         const uint32_t version
     ) {
         m_Device->Initialize(appName, version);
+
+        AddResizeCallbacks();
+
         InitVulkan();
         m_Initialized = true;
         ExecuteInitTasks();
     }
 
-    void Renderer::RecreateSwapChain() {
+    void Renderer::RecreateSwapChain() const {
         int width = 0, height = 0;
         glfwGetFramebufferSize(m_Window->GetWindow(), &width, &height);
         while (width == 0 || height == 0) {
@@ -1059,8 +890,6 @@ namespace Vulkan {
         WaitIdle();
 
         m_Swapchain->Cleanup();
-
-        CreateDepthResources();
         CreateSwapChain();
     }
 
@@ -1131,7 +960,11 @@ namespace Vulkan {
         renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
         renderPassInfo.pClearValues = clearValues.data();
 
-        vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBeginRenderPass(
+            commandBuffer,
+            &renderPassInfo,
+            VK_SUBPASS_CONTENTS_INLINE
+        );
 
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline);
 
@@ -1216,7 +1049,7 @@ namespace Vulkan {
 
         vkResetFences(m_Device->GetLogicalDevice(), 1, &m_InFlightFences[m_CurrentFrameIndex]);
 
-        const VkCommandBuffer cmd = m_CommandBuffers[m_CurrentFrameIndex];
+        const VkCommandBuffer &cmd = m_CommandBuffers[m_CurrentFrameIndex];
         vkResetCommandBuffer(cmd, 0);
 
         VkCommandBufferBeginInfo beginInfo{};
@@ -1343,9 +1176,7 @@ namespace Vulkan {
             m_Device->DestroyBuffer(m_UniformBuffers[i], m_UniformBuffersAllocations[i]);
         }
 
-        // 5. Destroy Swapchain-related resources (Images are destroyed here via Swapchain)
-        m_Device->DestroyImageView(m_DepthImageView);
-        m_Device->DestroyImage(m_DepthImage, m_DepthImageAllocation);
+        // 5. Destroy Swapchain-related resources
         m_Swapchain->Cleanup();
 
         // 6. Destroy Sync Objects
@@ -1370,6 +1201,9 @@ namespace Vulkan {
         // DumpVmaStats();
 
         m_Device->Cleanup();
+
+        m_Window->RemoveResizeCallback(m_ResizeCallbackHandle);
+
         m_Window->Destroy();
     }
 

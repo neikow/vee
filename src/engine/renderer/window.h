@@ -10,8 +10,12 @@ struct Extent {
     int height;
 };
 
+using ResizeCallbackFunction = std::function<void(Extent)>;
+
 class Window {
     GLFWwindow *m_Window = nullptr;
+
+    std::vector<ResizeCallbackFunction> m_ResizeCallbacks;
 
 public:
     Window(
@@ -20,7 +24,9 @@ public:
         const std::string &title
     );
 
-    void SetResizeCallback(GLFWframebuffersizefun callback) const;
+    unsigned long AddResizeCallback(const ResizeCallbackFunction &callback);
+
+    void RemoveResizeCallback(unsigned long handle);
 
     [[nodiscard]] GLFWwindow *GetWindow() const;
 
@@ -29,6 +35,13 @@ public:
     [[nodiscard]] Extent &GetExtent() const;
 
     [[nodiscard]] bool ShouldClose() const;
+
+private:
+    static void ResizeCallback(
+        GLFWwindow *window,
+        int width,
+        int height
+    );
 };
 
 

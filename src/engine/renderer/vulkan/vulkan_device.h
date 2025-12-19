@@ -177,6 +177,11 @@ namespace Vulkan {
             const VkFormat &format,
             VkImageAspectFlagBits aspectFlags
         );
+
+        [[nodiscard]] VkCommandBuffer BeginSingleTimeCommands(const VkCommandPool &commandPool) const;
+
+        void EndSingleTimeCommands(const VkCommandBuffer &commandBuffer, const VkQueue &queue,
+                                   const VkCommandPool &commandPool) const;
     };
 }
 

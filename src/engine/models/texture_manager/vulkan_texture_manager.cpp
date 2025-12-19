@@ -6,6 +6,7 @@
 #include "../../renderer/vulkan/vulkan_device.h"
 
 #include "stb_image.h"
+#include "../../renderer/vulkan/utils.h"
 
 namespace Vulkan {
     TextureInfo ParseTexture(const std::string &texturePath) {
@@ -105,7 +106,8 @@ namespace Vulkan {
         memcpy(data, info.pixels, info.imageSize);
         renderer->GetDevice()->UnmapMemory(stagingAlloc);
 
-        renderer->CreateImage(
+        Utils::CreateImage(
+            renderer->GetDevice(),
             info.width,
             info.height,
             VK_FORMAT_R8G8B8A8_SRGB,
@@ -117,19 +119,31 @@ namespace Vulkan {
             ("Texture" + std::to_string(textureId)).c_str()
         );
 
-        renderer->TransitionImageLayout(
-            info.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+        Utils::TransitionImageLayout(
+            renderer->GetDevice(),
+            info.image,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
         );
         renderer->CopyBufferToImage(
-            stagingBuffer, info.image, static_cast<uint32_t>(info.width), static_cast<uint32_t>(info.height)
+            stagingBuffer,
+            info.image,
+            static_cast<uint32_t>(info.width),
+            static_cast<uint32_t>(info.height)
         );
-        renderer->TransitionImageLayout(
-            info.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        Utils::TransitionImageLayout(
+            renderer->GetDevice(),
+            info.image,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         );
 
         info.imageView = renderer->GetDevice()->CreateImageView(
-            info.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT
+            info.image,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_ASPECT_COLOR_BIT
         );
 
         renderer->GetDevice()->DestroyBuffer(stagingBuffer, stagingAlloc);

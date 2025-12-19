@@ -23,6 +23,9 @@ Vulkan::RendererWithUi::RendererWithUi(const std::shared_ptr<Window> &window) : 
 }
 
 float Vulkan::RendererWithUi::GetAspectRatio() {
+    if (m_ViewportExtent.height == 0) {
+        return 1.0f;
+    }
     return static_cast<float>(m_ViewportExtent.width) / static_cast<float>(m_ViewportExtent.height);
 }
 
@@ -58,7 +61,7 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
         );
     }
 
-    const VkCommandBuffer cmd = BeginSingleTimeCommands(m_Device->GetGraphicsCommandPool());
+    const VkCommandBuffer &cmd = m_Device->BeginSingleTimeCommands(m_Device->GetGraphicsCommandPool());
 
     VkRenderPassBeginInfo pickingPassInfo{};
     pickingPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -115,7 +118,14 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
         );
 
         const auto info = GetMeshManager()->GetMeshInfo(drawCall.meshId);
-        vkCmdDrawIndexed(cmd, info.indexCount, 1, info.indexOffset, info.vertexOffset, 0);
+        vkCmdDrawIndexed(
+            cmd,
+            info.indexCount,
+            1,
+            info.indexOffset,
+            info.vertexOffset,
+            0
+        );
     }
 
     vkCmdEndRenderPass(cmd);
@@ -237,7 +247,8 @@ void Vulkan::RendererWithUi::InitImgui() {
 
 void Vulkan::RendererWithUi::CreatePickingResources() {
     const auto extent = m_Swapchain->GetExtent();
-    CreateImage(
+    Utils::CreateImage(
+        m_Device,
         extent.width,
         extent.height,
         VK_FORMAT_R32_UINT,
@@ -252,8 +263,7 @@ void Vulkan::RendererWithUi::CreatePickingResources() {
     m_PickingImageView = m_Device->CreateImageView(m_PickingImage, VK_FORMAT_R32_UINT, VK_IMAGE_ASPECT_COLOR_BIT);
 
     const std::array attachments = {
-        m_PickingImageView,
-        m_DepthImageView
+        m_PickingImageView, m_Swapchain->GetDepthImageView()
     };
 
     const VkFramebufferCreateInfo framebufferCreateInfo = {
@@ -352,7 +362,8 @@ void Vulkan::RendererWithUi::CreateViewportResources() {
         m_ViewportExtent = m_Swapchain->GetExtent();
     }
 
-    CreateImage(
+    Utils::CreateImage(
+        m_Device,
         m_ViewportExtent.width, m_ViewportExtent.height,
         m_Swapchain->GetFormat(), VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -369,7 +380,7 @@ void Vulkan::RendererWithUi::CreateViewportResources() {
 
     const std::array attachments = {
         m_ViewportImageView,
-        m_DepthImageView
+        m_Swapchain->GetDepthImageView()
     };
 
     VkFramebufferCreateInfo framebufferInfo{};
@@ -449,7 +460,15 @@ void Vulkan::RendererWithUi::CreatePickingPipeline() {
 }
 
 void Vulkan::RendererWithUi::RenderToScreen(const VkCommandBuffer &cmd) {
-    RenderScene(cmd, m_ViewportFramebuffer, m_ViewportExtent);
+    if (m_ViewportResized) {
+        return;
+    }
+
+    RenderScene(
+        cmd,
+        m_ViewportFramebuffer,
+        m_ViewportExtent
+    );
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -482,7 +501,6 @@ void Vulkan::RendererWithUi::RenderToScreen(const VkCommandBuffer &cmd) {
     uiPassInfo.renderPass = m_MainRenderPass;
     uiPassInfo.framebuffer = m_Swapchain->GetFramebuffer(m_ImageIndex);
     uiPassInfo.renderArea.extent = m_Swapchain->GetExtent();
-    uiPassInfo.clearValueCount = 0;
     std::array<VkClearValue, 2> clearValues{};
     clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
     clearValues[1].depthStencil = {1.0f, 0};
@@ -500,6 +518,10 @@ void Vulkan::RendererWithUi::RenderToScreen(const VkCommandBuffer &cmd) {
 
 void Vulkan::RendererWithUi::UpdateViewportSize(const uint32_t width, const uint32_t height) {
     if (width != m_ViewportExtent.width || height != m_ViewportExtent.height) {
+        m_ViewportResized = true;
+    }
+
+    if (m_ViewportResized) {
         m_ViewportExtent.width = width;
         m_ViewportExtent.height = height;
 
@@ -507,6 +529,8 @@ void Vulkan::RendererWithUi::UpdateViewportSize(const uint32_t width, const uint
 
         CleanupViewportResources();
         CreateViewportResources();
+
+        m_ViewportResized = false;
     }
 }
 
@@ -516,6 +540,13 @@ Entities::EntityID Vulkan::RendererWithUi::GetLastPickedID() const {
 
 std::shared_ptr<Window> Vulkan::RendererWithUi::GetWindow() {
     return m_Window;
+}
+
+void Vulkan::RendererWithUi::AddResizeCallbacks() {
+    Renderer::AddResizeCallbacks();
+    m_Window->AddResizeCallback([this](Extent) {
+        m_ViewportResized = true;
+    });
 }
 
 VkDescriptorSet Vulkan::RendererWithUi::GetViewportDescriptorSet() const {

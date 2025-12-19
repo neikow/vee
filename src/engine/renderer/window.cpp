@@ -7,12 +7,19 @@ Window::Window(const int width, const int height, const std::string &title) {
     m_Window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
 
     glfwSetWindowUserPointer(m_Window, this);
+    glfwSetFramebufferSizeCallback(m_Window, ResizeCallback);
 
     InputSystem::SetupCallbacks(m_Window);
 }
 
-void Window::SetResizeCallback(const GLFWframebuffersizefun callback) const {
-    glfwSetFramebufferSizeCallback(m_Window, callback);
+unsigned long Window::AddResizeCallback(const ResizeCallbackFunction &callback) {
+    const unsigned long id = m_ResizeCallbacks.size();
+    m_ResizeCallbacks.push_back(callback);
+    return id;
+}
+
+void Window::RemoveResizeCallback(const unsigned long handle) {
+    m_ResizeCallbacks.erase(m_ResizeCallbacks.begin() + handle);
 }
 
 GLFWwindow *Window::GetWindow() const {
@@ -36,4 +43,20 @@ Extent &Window::GetExtent() const {
 
 bool Window::ShouldClose() const {
     return glfwWindowShouldClose(m_Window);
+}
+
+void Window::ResizeCallback(
+    GLFWwindow *window,
+    const int width,
+    const int height
+) {
+    const auto *win = static_cast<Window *>(glfwGetWindowUserPointer(window));
+    for (const auto &callback: win->m_ResizeCallbacks) {
+        callback(
+            Extent{
+                .width = width,
+                .height = height
+            }
+        );
+    }
 }

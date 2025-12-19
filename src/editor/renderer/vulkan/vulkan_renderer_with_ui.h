@@ -38,6 +38,8 @@ namespace Vulkan {
         VkRenderPass m_PickingRenderPass = VK_NULL_HANDLE;
         VkPipeline m_PickingPipeline = VK_NULL_HANDLE;
 
+        bool m_ViewportResized = false;
+
     public:
         explicit RendererWithUi(const std::shared_ptr<Window> &window);
 
@@ -52,7 +54,7 @@ namespace Vulkan {
 
         void RequestEntityIDAt(double normX, double normY);
 
-        bool IsPickingRequestPending() const;
+        [[nodiscard]] bool IsPickingRequestPending() const;
 
         void UpdatePickingResult();
 
@@ -62,11 +64,13 @@ namespace Vulkan {
 
         void UpdateViewportSize(uint32_t width, uint32_t height);
 
-        Entities::EntityID GetLastPickedID() const;
+        [[nodiscard]] Entities::EntityID GetLastPickedID() const;
 
         std::shared_ptr<Window> GetWindow();
 
     private:
+        void AddResizeCallbacks() override;
+
         void InitImgui();
 
         void CreateGraphicsResources() override;

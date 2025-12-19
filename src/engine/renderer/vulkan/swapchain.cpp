@@ -9,9 +9,10 @@ namespace Vulkan {
 
     void Swapchain::Create(
         const VkExtent2D &extent,
-        const VkRenderPass &renderPass,
-        const VkImageView &depthView
+        const VkRenderPass &renderPass
     ) {
+        CreateDepthResources(extent);
+
         const auto swapChainSupport = m_Device->QuerySwapChainSupport(m_Device->GetPhysicalDevice());
 
         const VkSurfaceFormatKHR surfaceFormat = Utils::ChooseSwapSurfaceFormat(swapChainSupport.formats);
@@ -62,15 +63,18 @@ namespace Vulkan {
 
         vkGetSwapchainImagesKHR(m_Device->GetLogicalDevice(), m_Swapchain, &imageCount, nullptr);
         m_Images.resize(imageCount);
+        m_ImageViews.resize(imageCount);
+        m_Framebuffers.resize(imageCount);
         vkGetSwapchainImagesKHR(m_Device->GetLogicalDevice(), m_Swapchain, &imageCount, m_Images.data());
 
-        for (auto image: m_Images) {
-            m_ImageViews.push_back(m_Device->CreateImageView(image, m_Format, VK_IMAGE_ASPECT_COLOR_BIT));
-        }
+        for (size_t i = 0; i < imageCount; i++) {
+            m_ImageViews[i] = m_Device->CreateImageView(
+                m_Images[i],
+                m_Format,
+                VK_IMAGE_ASPECT_COLOR_BIT
+            );
 
-        m_Framebuffers.resize(m_ImageViews.size());
-        for (size_t i = 0; i < m_ImageViews.size(); i++) {
-            std::array attachments = {m_ImageViews[i], depthView};
+            std::array attachments = {m_ImageViews[i], m_DepthImageView};
 
             VkFramebufferCreateInfo framebufferInfo{};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -97,5 +101,36 @@ namespace Vulkan {
         }
 
         m_Device->DestroySwapchain(m_Swapchain);
+
+
+        m_Device->DestroyImageView(m_DepthImageView);
+        m_Device->DestroyImage(m_DepthImage, m_DepthImageAllocation);
+    }
+
+    void Swapchain::CreateDepthResources(const VkExtent2D &extent) {
+        const VkFormat depthFormat = Utils::FindDepthFormat(m_Device->GetPhysicalDevice());
+
+        Utils::CreateImage(
+            m_Device,
+            extent.width,
+            extent.height,
+            depthFormat,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+            m_DepthImage,
+            m_DepthImageAllocation,
+            "Depth Image"
+        );
+
+        m_DepthImageView = m_Device->CreateImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+        Utils::TransitionImageLayout(
+            m_Device,
+            m_DepthImage,
+            depthFormat,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+        );
     }
 }

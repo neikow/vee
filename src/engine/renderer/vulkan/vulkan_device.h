@@ -182,6 +182,8 @@ namespace Vulkan {
 
         void EndSingleTimeCommands(const VkCommandBuffer &commandBuffer, const VkQueue &queue,
                                    const VkCommandPool &commandPool) const;
+
+        [[nodiscard]] VkPhysicalDeviceProperties GetPhysicalDeviceProperties() const;
     };
 }
 

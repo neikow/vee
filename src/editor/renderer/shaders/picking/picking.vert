@@ -6,7 +6,7 @@ layout(push_constant) uniform PushConstants {
     uint entityId;
 } pcs;
 
-layout(binding = 0) uniform UniformBufferObject {
+layout(set = 1, binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
 } ubo;

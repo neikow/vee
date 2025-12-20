@@ -11,8 +11,8 @@ layout(push_constant) uniform PushConstants {
     uint textureId;
 } pcs;
 
-layout (set = 0, binding = 1) uniform sampler textureSampler;
-layout (set = 0, binding = 2) uniform texture2D textures[];
+layout (set = 0, binding = 0) uniform sampler textureSampler;
+layout (set = 0, binding = 1) uniform texture2D textures[];
 
 void main() {
     outColor = texture(sampler2D(textures[pcs.textureId], textureSampler), fragTexCoord * 1.0f);

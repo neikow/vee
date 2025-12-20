@@ -44,9 +44,12 @@ namespace Vulkan {
 
         VkRenderPass m_MainRenderPass = VK_NULL_HANDLE;
 
-        VkDescriptorSetLayout m_DescriptorSetLayout = VK_NULL_HANDLE;
+        VkDeviceSize m_PaddedUniformBufferSize = 0;
+        VkDescriptorSetLayout m_BindlessDescriptorSetLayout = VK_NULL_HANDLE;
+        VkDescriptorSetLayout m_DynamicDescriptorSetLayout = VK_NULL_HANDLE;
+        VkDescriptorSet m_BindlessDescriptorSet = VK_NULL_HANDLE;
+        VkDescriptorSet m_DynamicDescriptorSet = VK_NULL_HANDLE;
         VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
-        std::vector<VkDescriptorSet> m_DescriptorSets;
 
         std::shared_ptr<PipelineCache> m_PipelineCache;
         VkPipelineLayout m_PipelineLayout = VK_NULL_HANDLE;
@@ -63,9 +66,9 @@ namespace Vulkan {
         VkBuffer m_IndexBuffer = VK_NULL_HANDLE;
         VmaAllocation m_IndexAllocation = VK_NULL_HANDLE;
 
-        std::vector<VkBuffer> m_UniformBuffers;
-        std::vector<VmaAllocation> m_UniformBuffersAllocations;
-        std::vector<void *> m_UniformBuffersMapped;
+        VkBuffer m_UniformBuffer = VK_NULL_HANDLE;
+        VmaAllocation m_UniformBufferAllocation = VK_NULL_HANDLE;
+        void *m_UniformBufferMapped = nullptr;
 
         std::vector<VkSemaphore> m_ImageAvailableSemaphores;
         std::vector<VkSemaphore> m_RenderFinishedSemaphores;
@@ -95,6 +98,8 @@ namespace Vulkan {
         void RecordDrawQueue(
             const VkCommandBuffer &commandBuffer
         );
+
+        void CalculatePaddedUboSize();
 
         void RenderScene(
             const VkCommandBuffer &commandBuffer,

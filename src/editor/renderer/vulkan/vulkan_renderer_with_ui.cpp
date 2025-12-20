@@ -99,9 +99,29 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
     vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(cmd, m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
+    const auto dynamicOffset = static_cast<uint32_t>(
+        m_PaddedUniformBufferSize * m_CurrentFrameIndex
+    );
+
     vkCmdBindDescriptorSets(
-        cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout,
-        0, 1, &m_DescriptorSets[m_CurrentFrameIndex], 0, nullptr
+        cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        m_PipelineLayout,
+        0,
+        1,
+        &m_BindlessDescriptorSet,
+        0,
+        nullptr
+    );
+
+    vkCmdBindDescriptorSets(
+        cmd,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        m_PipelineLayout,
+        1,
+        1,
+        &m_DynamicDescriptorSet,
+        1,
+        &dynamicOffset
     );
 
     for (const auto &drawCall: m_DrawQueue) {

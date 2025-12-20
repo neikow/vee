@@ -672,3 +672,12 @@ void Vulkan::VulkanDevice::EndSingleTimeCommands(
         &commandBuffer
     );
 }
+
+VkPhysicalDeviceProperties Vulkan::VulkanDevice::GetPhysicalDeviceProperties() const {
+    VkPhysicalDeviceProperties2 deviceProperties2{};
+    deviceProperties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+
+    vkGetPhysicalDeviceProperties2(m_PhysicalDevice, &deviceProperties2);
+
+    return deviceProperties2.properties;
+}

@@ -17,8 +17,6 @@
 
 static constexpr uint8_t DEFAULT_PURPLE_PIXEL[4] = {255, 0, 255, 255};
 
-constexpr int MAX_TEXTURES = 2048;
-
 namespace Vulkan {
     std::shared_ptr<VulkanDevice> Renderer::GetDevice() const {
         return m_Device;
@@ -32,17 +30,15 @@ namespace Vulkan {
 
         VkWriteDescriptorSet descriptorWrite{};
         descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstBinding = 2;
+        descriptorWrite.dstBinding = 1;
         descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
         descriptorWrite.descriptorCount = 1;
         descriptorWrite.pImageInfo = &imageInfo;
 
         descriptorWrite.dstArrayElement = textureId;
 
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            descriptorWrite.dstSet = m_DescriptorSets[i];
-            vkUpdateDescriptorSets(m_Device->GetLogicalDevice(), 1, &descriptorWrite, 0, nullptr);
-        }
+        descriptorWrite.dstSet = m_BindlessDescriptorSet;
+        vkUpdateDescriptorSets(m_Device->GetLogicalDevice(), 1, &descriptorWrite, 0, nullptr);
     }
 
     void Renderer::UpdateGeometryBuffers() {
@@ -263,103 +259,98 @@ namespace Vulkan {
         if (!GetTextureManager()) {
             throw std::runtime_error("CreateDescriptorSets called but m_TextureManager is null");
         }
-
-        const std::vector layouts(MAX_FRAMES_IN_FLIGHT, m_DescriptorSetLayout);
-
-        const std::vector<uint32_t> variableDescriptorCounts(MAX_FRAMES_IN_FLIGHT, MAX_TEXTURES);
-
+        const uint32_t maxBindlessTextures = m_Device->GetPhysicalDeviceProperties().limits.
+                maxDescriptorSetSampledImages;
         VkDescriptorSetVariableDescriptorCountAllocateInfo variableCountInfo{};
         variableCountInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
-        variableCountInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-        variableCountInfo.pDescriptorCounts = variableDescriptorCounts.data();
+        variableCountInfo.descriptorSetCount = 1;
+        variableCountInfo.pDescriptorCounts = &maxBindlessTextures;
 
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool = m_DescriptorPool;
-        allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-        allocInfo.pSetLayouts = layouts.data();
-        allocInfo.pNext = &variableCountInfo;
+        VkDescriptorSetAllocateInfo bindlessAlloc{};
+        bindlessAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        bindlessAlloc.descriptorPool = m_DescriptorPool;
+        bindlessAlloc.descriptorSetCount = 1;
+        bindlessAlloc.pSetLayouts = &m_BindlessDescriptorSetLayout;
+        bindlessAlloc.pNext = &variableCountInfo;
 
-        m_DescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
         if (vkAllocateDescriptorSets(
                 m_Device->GetLogicalDevice(),
-                &allocInfo,
-                m_DescriptorSets.data()
+                &bindlessAlloc,
+                &m_BindlessDescriptorSet
             ) != VK_SUCCESS
         ) {
-            throw std::runtime_error("failed to allocate descriptor sets!");
+            throw std::runtime_error("failed to allocate bindless descriptor sets!");
         }
 
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            VkDescriptorBufferInfo bufferInfo{};
-            bufferInfo.buffer = m_UniformBuffers[i];
-            bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(UniformBufferObject);
+        const VkDescriptorSetAllocateInfo dynamicAlloc{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .descriptorPool = m_DescriptorPool,
+            .descriptorSetCount = 1,
+            .pSetLayouts = &m_DynamicDescriptorSetLayout
+        };
 
-            std::vector<VkDescriptorImageInfo> textureInfos(MAX_TEXTURES);
-
-            for (uint32_t j = 0; j < MAX_TEXTURES; ++j) {
-                textureInfos[j].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-                if (const auto textureView = GetTextureManager()->GetImageView(j); textureView != VK_NULL_HANDLE)
-                    textureInfos[j].imageView = textureView;
-                else
-                    textureInfos[j].imageView = m_DefaultTextureImageView;
-            }
-
-            std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
-
-            descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[0].dstSet = m_DescriptorSets[i];
-            descriptorWrites[0].dstBinding = 0;
-            descriptorWrites[0].dstArrayElement = 0;
-            descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            descriptorWrites[0].descriptorCount = 1;
-            descriptorWrites[0].pBufferInfo = &bufferInfo;
-
-            VkDescriptorImageInfo samplerInfo{};
-            samplerInfo.sampler = m_TextureSampler;
-
-            descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[1].dstSet = m_DescriptorSets[i];
-            descriptorWrites[1].dstBinding = 1;
-            descriptorWrites[1].dstArrayElement = 0;
-            descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-            descriptorWrites[1].descriptorCount = 1;
-            descriptorWrites[1].pImageInfo = &samplerInfo;
-
-            descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[2].dstSet = m_DescriptorSets[i];
-            descriptorWrites[2].dstBinding = 2;
-            descriptorWrites[2].dstArrayElement = 0;
-            descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-            descriptorWrites[2].descriptorCount = MAX_TEXTURES;
-            descriptorWrites[2].pImageInfo = textureInfos.data();
-
-            vkUpdateDescriptorSets(
+        if (
+            vkAllocateDescriptorSets(
                 m_Device->GetLogicalDevice(),
-                descriptorWrites.size(),
-                descriptorWrites.data(),
-                0,
-                nullptr
-            );
+                &dynamicAlloc,
+                &m_DynamicDescriptorSet
+            ) != VK_SUCCESS
+        ) {
+            throw std::runtime_error("failed to allocate dynamic descriptor set!");
         }
+
+        VkDescriptorImageInfo samplerInfo{};
+        samplerInfo.sampler = m_TextureSampler;
+
+        VkWriteDescriptorSet samplerWrite{};
+        samplerWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        samplerWrite.dstSet = m_BindlessDescriptorSet;
+        samplerWrite.dstBinding = 0;
+        samplerWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+        samplerWrite.descriptorCount = 1;
+        samplerWrite.pImageInfo = &samplerInfo;
+
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = m_UniformBuffer;
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(UniformBufferObject);
+
+        VkWriteDescriptorSet uboWrite{};
+        uboWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        uboWrite.dstSet = m_DynamicDescriptorSet;
+        uboWrite.dstBinding = 0;
+        uboWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+        uboWrite.descriptorCount = 1;
+        uboWrite.pBufferInfo = &bufferInfo;
+
+        const std::array writes = {samplerWrite, uboWrite};
+        vkUpdateDescriptorSets(
+            m_Device->GetLogicalDevice(),
+            writes.size(),
+            writes.data(),
+            0,
+            nullptr
+        );
     }
 
     void Renderer::CreateDescriptorPool() {
+        const auto maxBindlessTextures =
+                m_Device->GetPhysicalDeviceProperties().limits.
+                maxDescriptorSetSampledImages;
+
         std::array<VkDescriptorPoolSize, 3> poolSizes{};
-        poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+        poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+        poolSizes[0].descriptorCount = 1;
         poolSizes[1].type = VK_DESCRIPTOR_TYPE_SAMPLER;
-        poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+        poolSizes[1].descriptorCount = 1;
         poolSizes[2].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-        poolSizes[2].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * MAX_TEXTURES);
+        poolSizes[2].descriptorCount = maxBindlessTextures;
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
         poolInfo.pPoolSizes = poolSizes.data();
-        poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+        poolInfo.maxSets = 2;
         poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
 
         if (vkCreateDescriptorPool(
@@ -374,32 +365,35 @@ namespace Vulkan {
     }
 
     void Renderer::CreateUniformBuffers() {
-        m_UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-        m_UniformBuffersAllocations.resize(MAX_FRAMES_IN_FLIGHT);
-        m_UniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+        CalculatePaddedUboSize();
 
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            constexpr VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+        const auto bufferSize = m_PaddedUniformBufferSize * MAX_FRAMES_IN_FLIGHT;
 
-            VkBufferCreateInfo bufferInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-            bufferInfo.size = bufferSize;
-            bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        VkBufferCreateInfo bufferInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+        bufferInfo.size = bufferSize;
+        bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-            VmaAllocationCreateInfo allocInfo = {};
-            allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-            allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                              VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        VmaAllocationCreateInfo allocInfo = {};
+        allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+        allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                          VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
-            VmaAllocationInfo resultInfo;
-            if (vmaCreateBuffer(m_Device->GetAllocator(), &bufferInfo, &allocInfo,
-                                &m_UniformBuffers[i], &m_UniformBuffersAllocations[i],
-                                &resultInfo) != VK_SUCCESS) {
-                throw std::runtime_error("failed to create mapped uniform buffer!");
-            }
-
-            m_UniformBuffersMapped[i] = resultInfo.pMappedData;
+        VmaAllocationInfo resultInfo;
+        if (
+            vmaCreateBuffer(
+                m_Device->GetAllocator(),
+                &bufferInfo,
+                &allocInfo,
+                &m_UniformBuffer,
+                &m_UniformBufferAllocation,
+                &resultInfo
+            ) != VK_SUCCESS
+        ) {
+            throw std::runtime_error("failed to create mapped uniform buffer!");
         }
+
+        m_UniformBufferMapped = resultInfo.pMappedData;
     }
 
     void Renderer::CreateIndexBuffer() {
@@ -494,7 +488,7 @@ namespace Vulkan {
         const VkBuffer &dstBuffer,
         const VkDeviceSize &size
     ) const {
-        const VkCommandBuffer commandBuffer = m_Device->BeginSingleTimeCommands(m_Device->GetTransferCommandPool());
+        const VkCommandBuffer &commandBuffer = m_Device->BeginSingleTimeCommands(m_Device->GetTransferCommandPool());
 
         VkBufferCopy copyRegion{};
         copyRegion.srcOffset = 0;
@@ -648,10 +642,12 @@ namespace Vulkan {
         pushConstantRange.offset = 0;
         pushConstantRange.size = sizeof(PushData);
 
+        const std::array layouts = {m_BindlessDescriptorSetLayout, m_DynamicDescriptorSetLayout};
+
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = 1;
-        pipelineLayoutInfo.pSetLayouts = &m_DescriptorSetLayout;
+        pipelineLayoutInfo.setLayoutCount = layouts.size();
+        pipelineLayoutInfo.pSetLayouts = layouts.data();
         pipelineLayoutInfo.pushConstantRangeCount = 1;
         pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
@@ -702,56 +698,77 @@ namespace Vulkan {
     }
 
     void Renderer::CreateDescriptorSetLayout() {
+        const auto maxBindlessTextures = m_Device->GetPhysicalDeviceProperties().limits.maxDescriptorSetSampledImages;
+
+        // Dynamic Layout
         VkDescriptorSetLayoutBinding uboLayoutBinding{};
         uboLayoutBinding.binding = 0;
-        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
         uboLayoutBinding.descriptorCount = 1;
         uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
         uboLayoutBinding.pImmutableSamplers = nullptr;
 
+        // Bindless Layout
         VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-        samplerLayoutBinding.binding = 1;
+        samplerLayoutBinding.binding = 0;
         samplerLayoutBinding.descriptorCount = 1;
         samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
         samplerLayoutBinding.pImmutableSamplers = nullptr;
         samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
         VkDescriptorSetLayoutBinding textureLayoutBinding{};
-        textureLayoutBinding.binding = 2;
-        textureLayoutBinding.descriptorCount = MAX_TEXTURES;
+        textureLayoutBinding.binding = 1;
+        textureLayoutBinding.descriptorCount = maxBindlessTextures;
         textureLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
         textureLayoutBinding.pImmutableSamplers = nullptr;
         textureLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-        std::vector<VkDescriptorBindingFlags> bindingFlags(3); // 3 bindings: UBO, Textures[], Sampler
-        bindingFlags[0] = 0; // UBO binding (binding=0) has no special flags
-        bindingFlags[1] = 0; // Sampler binding (binding=1)
-        bindingFlags[2] =
-                VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | // Required for a *dynamically sized* array
-                VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | // Allows some array elements to be unbound/invalid
-                VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT; // Specific to sampled images
+        std::vector<VkDescriptorBindingFlags> bindlessBindingFlags(2);
+        bindlessBindingFlags[0] = 0; // Sampler binding (binding=1)
+        bindlessBindingFlags[1] =
+                VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT |
+                VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
+                VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT; // Texture binding (binding=2)
 
-        VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{};
-        bindingFlagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-        bindingFlagsInfo.bindingCount = static_cast<uint32_t>(bindingFlags.size());
-        bindingFlagsInfo.pBindingFlags = bindingFlags.data();
+        VkDescriptorSetLayoutBindingFlagsCreateInfo bindlessBindingFlagsInfo{};
+        bindlessBindingFlagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+        bindlessBindingFlagsInfo.bindingCount = bindlessBindingFlags.size();
+        bindlessBindingFlagsInfo.pBindingFlags = bindlessBindingFlags.data();
 
-        const std::array bindings = {uboLayoutBinding, samplerLayoutBinding, textureLayoutBinding};
-        VkDescriptorSetLayoutCreateInfo layoutInfo{};
-        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-        layoutInfo.pBindings = bindings.data();
-        layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
-        layoutInfo.pNext = &bindingFlagsInfo;
+        VkDescriptorSetLayoutCreateInfo dynamicLayoutInfo{};
+        dynamicLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        dynamicLayoutInfo.bindingCount = 1;
+        dynamicLayoutInfo.pBindings = &uboLayoutBinding;
+
+        const std::array bindlessBindings = {
+            samplerLayoutBinding,
+            textureLayoutBinding
+        };
+        VkDescriptorSetLayoutCreateInfo bindlessLayoutInfo{};
+        bindlessLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        bindlessLayoutInfo.bindingCount = bindlessBindings.size();
+        bindlessLayoutInfo.pBindings = bindlessBindings.data();
+        bindlessLayoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+        bindlessLayoutInfo.pNext = &bindlessBindingFlagsInfo;
 
         if (vkCreateDescriptorSetLayout(
                 m_Device->GetLogicalDevice(),
-                &layoutInfo,
+                &dynamicLayoutInfo,
                 nullptr,
-                &m_DescriptorSetLayout
+                &m_DynamicDescriptorSetLayout
             ) != VK_SUCCESS
         ) {
-            throw std::runtime_error("failed to create descriptor set layout!");
+            throw std::runtime_error("failed to create dynamic descriptor set layout!");
+        }
+
+        if (vkCreateDescriptorSetLayout(
+                m_Device->GetLogicalDevice(),
+                &bindlessLayoutInfo,
+                nullptr,
+                &m_BindlessDescriptorSetLayout
+            ) != VK_SUCCESS
+        ) {
+            throw std::runtime_error("failed to create bindless descriptor set layout!");
         }
     }
 
@@ -780,7 +797,11 @@ namespace Vulkan {
         VkAttachmentDescription depthAttachment{};
         depthAttachment.format = Utils::FindSupportedFormat(
             m_Device->GetPhysicalDevice(),
-            {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+            {
+                VK_FORMAT_D32_SFLOAT,
+                VK_FORMAT_D32_SFLOAT_S8_UINT,
+                VK_FORMAT_D24_UNORM_S8_UINT
+            },
             VK_IMAGE_TILING_OPTIMAL,
             VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
         );
@@ -830,10 +851,9 @@ namespace Vulkan {
         renderPassInfo.dependencyCount = 1;
         renderPassInfo.pDependencies = &dependency;
 
-        if (vkCreateRenderPass(m_Device->GetLogicalDevice(), &renderPassInfo, nullptr, &m_MainRenderPass) !=
-            VK_SUCCESS) {
-            throw std::runtime_error("failed to create render pass!");
-        }
+        m_MainRenderPass = m_Device->CreateRenderPass(
+            renderPassInfo
+        );
     }
 
     void Renderer::CreateSwapChain() const {
@@ -896,15 +916,19 @@ namespace Vulkan {
     void Renderer::RecordDrawQueue(const VkCommandBuffer &commandBuffer) {
         // TODO: sort draw calls by texture to minimize descriptor set changes
 
+        const auto dynamicOffset = static_cast<uint32_t>(
+            m_PaddedUniformBufferSize * m_CurrentFrameIndex
+        );
+
         vkCmdBindDescriptorSets(
             commandBuffer,
             VK_PIPELINE_BIND_POINT_GRAPHICS,
             m_PipelineLayout,
             0,
             1,
-            &m_DescriptorSets[m_CurrentFrameIndex],
-            0,
-            nullptr
+            &m_BindlessDescriptorSet,
+            1,
+            &dynamicOffset
         );
 
         for (const auto &drawCall: m_DrawQueue) {
@@ -938,6 +962,18 @@ namespace Vulkan {
         m_DrawQueue.clear();
     }
 
+    void Renderer::CalculatePaddedUboSize() {
+        const auto minAlignment = m_Device->GetPhysicalDeviceProperties().limits.
+                minUniformBufferOffsetAlignment;
+        constexpr VkDeviceSize uboSize = sizeof(UniformBufferObject);
+
+        m_PaddedUniformBufferSize = uboSize;
+        if (minAlignment > 0) {
+            // Alignment formula: (size + alignment - 1) & ~(alignment - 1)
+            m_PaddedUniformBufferSize = (uboSize + minAlignment - 1) & ~(minAlignment - 1);
+        }
+    }
+
     void Renderer::RenderScene(
         const VkCommandBuffer &commandBuffer,
         const VkFramebuffer &framebuffer,
@@ -966,7 +1002,11 @@ namespace Vulkan {
             VK_SUBPASS_CONTENTS_INLINE
         );
 
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline);
+        vkCmdBindPipeline(
+            commandBuffer,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            m_GraphicsPipeline
+        );
 
         VkViewport viewport{};
         viewport.x = 0.0f;
@@ -987,9 +1027,31 @@ namespace Vulkan {
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
         vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
+        const auto dynamicOffset = static_cast<uint32_t>(
+            m_PaddedUniformBufferSize * m_CurrentFrameIndex
+        );
+
         vkCmdBindDescriptorSets(
-            commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout,
-            0, 1, &m_DescriptorSets[m_CurrentFrameIndex], 0, nullptr
+            commandBuffer,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            m_PipelineLayout,
+            0,
+            1,
+            &m_BindlessDescriptorSet,
+            0,
+            nullptr
+        );
+
+        // Bind Set 1: Dynamic UBO
+        vkCmdBindDescriptorSets(
+            commandBuffer,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            m_PipelineLayout,
+            1,
+            1,
+            &m_DynamicDescriptorSet,
+            1,
+            &dynamicOffset
         );
 
         // 4. Execute Draw Queue
@@ -1122,7 +1184,14 @@ namespace Vulkan {
         ubo.proj = projectionMatrix;
         ubo.proj[1][1] *= -1;
 
-        memcpy(m_UniformBuffersMapped[m_CurrentFrameIndex], &ubo, sizeof(UniformBufferObject));
+        const VkDeviceSize offset = m_CurrentFrameIndex * m_PaddedUniformBufferSize;
+        char *targetAddress = static_cast<char *>(m_UniformBufferMapped) + offset;
+
+        memcpy(
+            targetAddress,
+            &ubo,
+            sizeof(UniformBufferObject)
+        );
     }
 
     void Renderer::SubmitDrawCall(
@@ -1171,10 +1240,8 @@ namespace Vulkan {
                 m_IndexAllocation
             );
 
-        // 4. Destroy Uniform Buffers (per frame)
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            m_Device->DestroyBuffer(m_UniformBuffers[i], m_UniformBuffersAllocations[i]);
-        }
+        // 4. Destroy Uniform Buffer
+        m_Device->DestroyBuffer(m_UniformBuffer, m_UniformBufferAllocation);
 
         // 5. Destroy Swapchain-related resources
         m_Swapchain->Cleanup();
@@ -1191,7 +1258,8 @@ namespace Vulkan {
         // 7. Destroy Pipeline and Layouts
         m_Device->DestroyPipeline(m_GraphicsPipeline);
         m_Device->DestroyPipelineLayout(m_PipelineLayout);
-        m_Device->DestroyDescriptorSetLayout(m_DescriptorSetLayout);
+        m_Device->DestroyDescriptorSetLayout(m_BindlessDescriptorSetLayout);
+        m_Device->DestroyDescriptorSetLayout(m_DynamicDescriptorSetLayout);
         m_Device->DestroyDescriptorPool(m_DescriptorPool);
         m_Device->DestroySampler(m_TextureSampler);
 

@@ -3,8 +3,12 @@
 #include "utils.h"
 
 namespace Vulkan {
-    Swapchain::Swapchain(const std::shared_ptr<VulkanDevice> &device)
-        : m_Device(device) {
+    Swapchain::Swapchain(
+        const std::shared_ptr<VulkanDevice> &device,
+        const std::shared_ptr<ResourceTracker> &tracker
+    )
+        : m_Device(device),
+          m_ResourceTracker(tracker) {
     }
 
     void Swapchain::Create(
@@ -57,17 +61,41 @@ namespace Vulkan {
         createInfo.clipped = VK_TRUE;
         createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-        if (vkCreateSwapchainKHR(m_Device->GetLogicalDevice(), &createInfo, nullptr, &m_Swapchain) != VK_SUCCESS) {
+        if (
+            vkCreateSwapchainKHR(
+                m_Device->GetLogicalDevice(),
+                &createInfo,
+                nullptr,
+                &m_Swapchain
+            ) != VK_SUCCESS
+        ) {
             throw std::runtime_error("failed to create swap chain!");
         }
 
-        vkGetSwapchainImagesKHR(m_Device->GetLogicalDevice(), m_Swapchain, &imageCount, nullptr);
+        vkGetSwapchainImagesKHR(
+            m_Device->GetLogicalDevice(),
+            m_Swapchain,
+            &imageCount,
+            nullptr
+        );
         m_Images.resize(imageCount);
         m_ImageViews.resize(imageCount);
         m_Framebuffers.resize(imageCount);
-        vkGetSwapchainImagesKHR(m_Device->GetLogicalDevice(), m_Swapchain, &imageCount, m_Images.data());
+        vkGetSwapchainImagesKHR(
+            m_Device->GetLogicalDevice(),
+            m_Swapchain,
+            &imageCount,
+            m_Images.data()
+        );
 
         for (size_t i = 0; i < imageCount; i++) {
+            m_ResourceTracker->RegisterImage(
+                "Swapchain_Image_" + std::to_string(i),
+                m_Images[i],
+                m_Format,
+                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+            );
+
             m_ImageViews[i] = m_Device->CreateImageView(
                 m_Images[i],
                 m_Format,
@@ -100,8 +128,11 @@ namespace Vulkan {
             m_Device->DestroyImageView(imageView);
         }
 
-        m_Device->DestroySwapchain(m_Swapchain);
+        for (const auto image: m_Images) {
+            m_ResourceTracker->UnregisterImage(image);
+        }
 
+        m_Device->DestroySwapchain(m_Swapchain);
 
         m_Device->DestroyImageView(m_DepthImageView);
         m_Device->DestroyImage(m_DepthImage, m_DepthImageAllocation);
@@ -123,14 +154,17 @@ namespace Vulkan {
             "Depth Image"
         );
 
-        m_DepthImageView = m_Device->CreateImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-
-        Utils::TransitionImageLayout(
-            m_Device,
+        m_ResourceTracker->RegisterImage(
+            "Swapchain_Depth_Image",
             m_DepthImage,
             depthFormat,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+            VK_IMAGE_LAYOUT_UNDEFINED
+        );
+
+        m_DepthImageView = m_Device->CreateImageView(
+            m_DepthImage,
+            depthFormat,
+            VK_IMAGE_ASPECT_DEPTH_BIT
         );
     }
 }

@@ -7,7 +7,6 @@
 #include "../../../engine/renderer/vulkan/utils.h"
 #include "../../../engine/renderer/vulkan/vertex_utils.h"
 #include "../../../engine/renderer/vulkan/vulkan_device.h"
-#include "../../../engine/shaders/compile.h"
 
 
 void Vulkan::RendererWithUi::Initialize(
@@ -31,6 +30,7 @@ float Vulkan::RendererWithUi::GetAspectRatio() {
 
 void Vulkan::RendererWithUi::Cleanup() {
     CleanupViewportResources();
+    m_Device->DestroyRenderPass(m_ViewportRenderPass);
 
     CleanupPickingResources();
     m_Device->DestroyRenderPass(m_PickingRenderPass);
@@ -50,6 +50,17 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
     if (m_PickingRequest.isPending) return;
     if (normX < 0.0 || normX > 1.0 || normY < 0.0 || normY > 1.0) return;
 
+    if (m_PickingRequest.fence == VK_NULL_HANDLE) {
+        VkFenceCreateInfo fenceInfo{.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        vkCreateFence(
+            m_Device->GetLogicalDevice(),
+            &fenceInfo,
+            nullptr,
+            &m_PickingRequest.fence
+        );
+    }
+
     if (m_PickingRequest.buffer == VK_NULL_HANDLE) {
         CreateBuffer(
             sizeof(uint32_t),
@@ -61,14 +72,34 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
         );
     }
 
-    const VkCommandBuffer &cmd = m_Device->BeginSingleTimeCommands(m_Device->GetGraphicsCommandPool());
+    vkResetFences(
+        m_Device->GetLogicalDevice(),
+        1,
+        &m_PickingRequest.fence
+    );
 
-    VkRenderPassBeginInfo pickingPassInfo{};
-    pickingPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    pickingPassInfo.renderPass = m_PickingRenderPass;
-    pickingPassInfo.framebuffer = m_PickingFramebuffer;
-    pickingPassInfo.renderArea.offset = {0, 0};
-    pickingPassInfo.renderArea.extent = m_ViewportExtent;
+    m_PickingRequest.pos = {
+        static_cast<int32_t>(normX * m_ViewportExtent.width),
+        static_cast<int32_t>(normY * m_ViewportExtent.height)
+    };
+    m_PickingRequest.isPending = true;
+    m_PickingRequest.frameSubmitted = m_TotalFramesRendered;
+}
+
+bool Vulkan::RendererWithUi::IsPickingRequestPending() const {
+    return m_PickingRequest.isPending;
+}
+
+void Vulkan::RendererWithUi::ExecutePickingPass(const VkCommandBuffer &cmd) const {
+    VkRenderPassBeginInfo pickingPassInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .renderPass = m_PickingRenderPass,
+        .framebuffer = m_PickingFramebuffer,
+        .renderArea = {
+            {0, 0},
+            m_ViewportExtent
+        }
+    };
 
     std::array<VkClearValue, 2> clearValues{};
     clearValues[0].color.uint32[0] = Entities::NULL_ENTITY;
@@ -77,21 +108,21 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
     pickingPassInfo.pClearValues = clearValues.data();
 
     vkCmdBeginRenderPass(cmd, &pickingPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PickingPipeline);
 
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(m_ViewportExtent.width);
-    viewport.height = static_cast<float>(m_ViewportExtent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
+    const VkViewport viewport{
+        0.0f,
+        0.0f,
+        static_cast<float>(m_ViewportExtent.width),
+        static_cast<float>(m_ViewportExtent.height),
+        0.0f,
+        1.0f
+    };
     vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = m_ViewportExtent;
+    const VkRect2D scissor{
+        {0, 0},
+        m_ViewportExtent
+    };
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     const VkBuffer vertexBuffers[] = {m_VertexBuffer};
@@ -99,12 +130,10 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
     vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(cmd, m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    const auto dynamicOffset = static_cast<uint32_t>(
-        m_PaddedUniformBufferSize * m_CurrentFrameIndex
-    );
-
+    const auto dynamicOffset = static_cast<uint32_t>(m_PaddedUniformBufferSize * m_CurrentFrameIndex);
     vkCmdBindDescriptorSets(
-        cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        cmd,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
         m_PipelineLayout,
         0,
         1,
@@ -112,7 +141,6 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
         0,
         nullptr
     );
-
     vkCmdBindDescriptorSets(
         cmd,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -128,15 +156,16 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
         PushData pushData = {
             drawCall.worldMatrix,
             drawCall.textureId,
-            drawCall.entityId,
+            drawCall.entityId
         };
-
         vkCmdPushConstants(
-            cmd, m_PipelineLayout,
+            cmd,
+            m_PipelineLayout,
             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            0, sizeof(PushData), &pushData
+            0,
+            sizeof(PushData),
+            &pushData
         );
-
         const auto info = GetMeshManager()->GetMeshInfo(drawCall.meshId);
         vkCmdDrawIndexed(
             cmd,
@@ -149,17 +178,19 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
     }
 
     vkCmdEndRenderPass(cmd);
+}
 
-    VkBufferImageCopy region{};
-    region.bufferOffset = 0;
-    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    region.imageSubresource.layerCount = 1;
-    region.imageOffset = {
-        static_cast<int32_t>(normX * m_ViewportExtent.width),
-        static_cast<int32_t>(normY * m_ViewportExtent.height),
-        0
+void Vulkan::RendererWithUi::RecordPickingCopy(const VkCommandBuffer &cmd) const {
+    const VkBufferImageCopy region{
+        .bufferOffset = 0,
+        .imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+        .imageOffset = {
+            m_PickingRequest.pos.x,
+            m_PickingRequest.pos.y,
+            0
+        },
+        .imageExtent = {1, 1, 1}
     };
-    region.imageExtent = {1, 1, 1};
 
     vkCmdCopyImageToBuffer(
         cmd,
@@ -169,47 +200,107 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
         1,
         &region
     );
-
-    // We don't need to wait for the result immediately so we don't call EndSingleTimeCommands();
-    vkEndCommandBuffer(cmd);
-
-    VkSubmitInfo submitInfo{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &cmd;
-
-    vkQueueSubmit(
-        m_Device->GetGraphicsQueue(),
-        1,
-        &submitInfo,
-        VK_NULL_HANDLE
-    );
-
-    m_PickingRequest.isPending = true;
-    m_PickingRequest.frameSubmitted = m_TotalFramesRendered;
-}
-
-bool Vulkan::RendererWithUi::IsPickingRequestPending() const {
-    return m_PickingRequest.isPending;
-}
+};
 
 void Vulkan::RendererWithUi::UpdatePickingResult() {
     if (!m_PickingRequest.isPending) return;
 
-    if (m_TotalFramesRendered < m_PickingRequest.frameSubmitted + MAX_FRAMES_IN_FLIGHT) {
-        return;
-    }
+    const VkResult result = vkGetFenceStatus(m_Device->GetLogicalDevice(), m_PickingRequest.fence);
 
-    const auto allocInfo = m_Device->GetAllocationInfo(m_PickingRequest.allocation);
-    if (allocInfo.pMappedData) {
-        std::memcpy(&m_LastPickedEntityID, allocInfo.pMappedData, sizeof(uint32_t));
-    }
+    if (result == VK_SUCCESS) {
+        const auto allocInfo = m_Device->GetAllocationInfo(m_PickingRequest.allocation);
+        if (allocInfo.pMappedData) {
+            std::memcpy(&m_LastPickedEntityID, allocInfo.pMappedData, sizeof(uint32_t));
+        }
 
-    m_PickingRequest.isPending = false;
+        m_PickingRequest.isPending = false;
+    }
 }
 
-void Vulkan::RendererWithUi::Draw() {
+void Vulkan::RendererWithUi::BuildRenderGraph() {
     UpdatePickingResult();
-    Renderer::Draw();
+
+    if (m_PickingRequest.isPending) {
+        m_RenderGraph->AddPass({
+            .name = "Picking",
+            .execute = [this](const VkCommandBuffer &cmd) { ExecutePickingPass(cmd); },
+            .usages = {
+                {
+                    m_PickingImage,
+                    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+                }
+            },
+        });
+
+        m_RenderGraph->AddPass({
+            .name = "PickingCopy",
+            .execute = [this](const VkCommandBuffer &cmd) { RecordPickingCopy(cmd); },
+            .usages = {
+                {
+                    m_PickingImage,
+                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    VK_ACCESS_TRANSFER_READ_BIT,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT
+                }
+            },
+        });
+    }
+
+    m_RenderGraph->AddPass({
+        .name = "MainScene",
+        .execute = [this](const VkCommandBuffer &cmd) {
+            RenderScene(
+                cmd,
+                m_ViewportFramebuffer,
+                m_ViewportExtent
+            );
+        },
+        .usages = {
+            {
+                m_ViewportImage,
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+            }
+        },
+    });
+
+    m_RenderGraph->AddPass({
+        .name = "ImGui",
+        .execute = [this](const VkCommandBuffer &cmd) {
+            RenderUI(cmd);
+        },
+        .usages = {
+            {
+                m_ViewportImage,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VK_ACCESS_SHADER_READ_BIT,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+            },
+            {
+                m_Swapchain->GetImage(m_ImageIndex),
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+            }
+        },
+    });
+
+    m_RenderGraph->AddPass({
+        .name = "FinalPresentTransition",
+        .execute = [](const VkCommandBuffer &) {
+        },
+        .usages = {
+            {
+                m_Swapchain->GetImage(m_ImageIndex),
+                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                0,
+                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
+            }
+        }
+    });
 }
 
 void Vulkan::RendererWithUi::InitImgui() {
@@ -265,6 +356,12 @@ void Vulkan::RendererWithUi::InitImgui() {
     }
 }
 
+void Vulkan::RendererWithUi::CreateViewportRenderPass() {
+    m_ViewportRenderPass = CreateGraphicsRenderPass(
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    );
+}
+
 void Vulkan::RendererWithUi::CreatePickingResources() {
     const auto extent = m_Swapchain->GetExtent();
     Utils::CreateImage(
@@ -278,6 +375,13 @@ void Vulkan::RendererWithUi::CreatePickingResources() {
         m_PickingImage,
         m_PickingAllocation,
         "Picking Image"
+    );
+
+    m_ResourceTracker->RegisterImage(
+        "Picking_Image",
+        m_PickingImage,
+        VK_FORMAT_R32_UINT,
+        VK_IMAGE_LAYOUT_UNDEFINED
     );
 
     m_PickingImageView = m_Device->CreateImageView(m_PickingImage, VK_FORMAT_R32_UINT, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -306,7 +410,14 @@ void Vulkan::RendererWithUi::CleanupPickingResources() {
     }
     if (m_PickingRequest.buffer) {
         m_Device->DestroyBuffer(m_PickingRequest.buffer, m_PickingRequest.allocation);
+        m_PickingRequest.buffer = VK_NULL_HANDLE;
     }
+
+    if (m_PickingRequest.fence != VK_NULL_HANDLE) {
+        m_Device->DestroyFence(m_PickingRequest.fence);
+        m_PickingRequest.fence = VK_NULL_HANDLE;
+    }
+
     m_Device->DestroyImage(m_PickingImage, m_PickingAllocation);
     m_Device->DestroyFramebuffer(m_PickingFramebuffer);
 }
@@ -318,6 +429,7 @@ void Vulkan::RendererWithUi::PrepareForRendering() {
 
 void Vulkan::RendererWithUi::CreateGraphicsResources() {
     Renderer::CreateGraphicsResources();
+    CreateViewportRenderPass();
     CreatePickingRenderPass();
     CreatePickingPipeline();
     CreatePickingResources();
@@ -385,11 +497,20 @@ void Vulkan::RendererWithUi::CreateViewportResources() {
     Utils::CreateImage(
         m_Device,
         m_ViewportExtent.width, m_ViewportExtent.height,
-        m_Swapchain->GetFormat(), VK_IMAGE_TILING_OPTIMAL,
+        m_Swapchain->GetFormat(),
+        VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
-        m_ViewportImage, m_ViewportAllocation,
+        VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+        m_ViewportImage,
+        m_ViewportAllocation,
         "Viewport Image"
+    );
+
+    m_ResourceTracker->RegisterImage(
+        "Viewport_Image",
+        m_ViewportImage,
+        m_Swapchain->GetFormat(),
+        VK_IMAGE_LAYOUT_UNDEFINED
     );
 
     m_ViewportImageView = m_Device->CreateImageView(
@@ -405,7 +526,7 @@ void Vulkan::RendererWithUi::CreateViewportResources() {
 
     VkFramebufferCreateInfo framebufferInfo{};
     framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    framebufferInfo.renderPass = m_MainRenderPass;
+    framebufferInfo.renderPass = m_ViewportRenderPass;
     framebufferInfo.attachmentCount = attachments.size();
     framebufferInfo.pAttachments = attachments.data();
     framebufferInfo.width = m_ViewportExtent.width;
@@ -479,43 +600,7 @@ void Vulkan::RendererWithUi::CreatePickingPipeline() {
     );
 }
 
-void Vulkan::RendererWithUi::RenderToScreen(const VkCommandBuffer &cmd) {
-    if (m_ViewportResized) {
-        return;
-    }
-
-    RenderScene(
-        cmd,
-        m_ViewportFramebuffer,
-        m_ViewportExtent
-    );
-
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = m_ViewportImage;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    vkCmdPipelineBarrier(
-        cmd,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        0,
-        0, nullptr,
-        0, nullptr,
-        1, &barrier
-    );
-
+void Vulkan::RendererWithUi::RenderUI(const VkCommandBuffer &cmd) const {
     VkRenderPassBeginInfo uiPassInfo{};
     uiPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     uiPassInfo.renderPass = m_MainRenderPass;
@@ -547,7 +632,10 @@ void Vulkan::RendererWithUi::UpdateViewportSize(const uint32_t width, const uint
 
         WaitIdle();
 
+        m_Device->DestroyRenderPass(m_ViewportRenderPass);
         CleanupViewportResources();
+
+        CreateViewportRenderPass();
         CreateViewportResources();
 
         m_ViewportResized = false;

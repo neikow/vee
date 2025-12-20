@@ -6,11 +6,16 @@
 #include <vulkan/vulkan.h>
 
 namespace Vulkan {
+    class ResourceTracker;
+}
+
+namespace Vulkan {
     class VulkanDevice;
 
     /** Swapchain class handles the creation and management of the Vulkan swapchain. */
     class Swapchain {
         std::shared_ptr<VulkanDevice> m_Device;
+        std::shared_ptr<ResourceTracker> m_ResourceTracker;
 
         VkSwapchainKHR m_Swapchain = VK_NULL_HANDLE;
         VkExtent2D m_Extent{};
@@ -26,7 +31,10 @@ namespace Vulkan {
 
     public:
         /** Constructor that initializes the Swapchain with a VulkanDevice. */
-        explicit Swapchain(const std::shared_ptr<VulkanDevice> &device);
+        explicit Swapchain(
+            const std::shared_ptr<VulkanDevice> &device,
+            const std::shared_ptr<ResourceTracker> &tracker
+        );
 
         ~Swapchain() = default;
 
@@ -45,6 +53,7 @@ namespace Vulkan {
         [[nodiscard]] VkExtent2D GetExtent() const { return m_Extent; }
         [[nodiscard]] VkFormat GetFormat() const { return m_Format; }
         [[nodiscard]] VkFramebuffer GetFramebuffer(const uint32_t index) const { return m_Framebuffers[index]; }
+        [[nodiscard]] VkImage GetImage(const size_t index) const { return m_Images[index]; }
         [[nodiscard]] VkImageView GetDepthImageView() const { return m_DepthImageView; }
         [[nodiscard]] size_t GetImageCount() const { return m_Images.size(); }
     };

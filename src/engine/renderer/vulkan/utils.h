@@ -33,6 +33,8 @@ namespace Vulkan::Utils {
 
     bool HasStencilComponent(VkFormat format);
 
+    bool IsDepthFormat(VkFormat format);
+
     VkDebugUtilsMessengerCreateInfoEXT GetDebugMessageCreateInfo(
         VkDebugUtilsMessageSeverityFlagsEXT messageSeverity,
         VkDebugUtilsMessageTypeFlagsEXT messageType
@@ -76,13 +78,21 @@ namespace Vulkan::Utils {
         const char *debugName
     );
 
-    void TransitionImageLayout(
-        const std::shared_ptr<VulkanDevice> &device,
+    void CopyBufferToImage(
+        const VkCommandBuffer &cmd,
+        const VkBuffer &buffer,
         const VkImage &image,
-        VkFormat format,
-        VkImageLayout oldLayout,
-        VkImageLayout newLayout
+        uint32_t width,
+        uint32_t height
     );
+
+    // void TransitionImageLayout(
+    //     const std::shared_ptr<VulkanDevice> &device,
+    //     const VkImage &image,
+    //     VkFormat format,
+    //     VkImageLayout oldLayout,
+    //     VkImageLayout newLayout
+    // );
 }
 
 #endif //GAME_ENGINE_UTILS_H

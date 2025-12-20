@@ -7,6 +7,8 @@
 #include <vulkan/vulkan_core.h>
 
 #include "pipeline_builder.h"
+#include "render_graph.h"
+#include "resource_tracker.h"
 #include "shader_module_cache.h"
 #include "swapchain.h"
 #include "../abstract.h"
@@ -39,6 +41,10 @@ namespace Vulkan {
         bool m_FramebufferResized = false;
 
         std::shared_ptr<VulkanDevice> m_Device;
+
+        std::shared_ptr<ResourceTracker> m_ResourceTracker;
+        std::shared_ptr<RenderGraph> m_RenderGraph;
+
         std::shared_ptr<Swapchain> m_Swapchain;
         std::shared_ptr<ShaderModuleCache> m_ShaderModuleCache;
 
@@ -95,21 +101,15 @@ namespace Vulkan {
             uint32_t version
         ) override;
 
-        void RecordDrawQueue(
-            const VkCommandBuffer &commandBuffer
-        );
-
         void CalculatePaddedUboSize();
 
-        void RenderScene(
-            const VkCommandBuffer &commandBuffer,
-            const VkFramebuffer &framebuffer,
-            VkExtent2D extent
-        ) const;
+        void RenderScene(const VkCommandBuffer &commandBuffer, const VkFramebuffer &framebuffer, VkExtent2D extent);
 
-        virtual void RenderToScreen(
-            const VkCommandBuffer &cmd
-        );
+        virtual void BuildRenderGraph();
+
+        bool IsReadyToDraw();
+
+        void Present(const VkCommandBuffer &cmd);
 
         void Draw() override;
 
@@ -134,6 +134,8 @@ namespace Vulkan {
         [[nodiscard]] std::shared_ptr<VulkanDevice> GetDevice() const;
 
         float GetAspectRatio() override;
+
+        std::shared_ptr<ResourceTracker> GetResourceTracker();
 
     protected:
         virtual void AddResizeCallbacks();
@@ -189,16 +191,11 @@ namespace Vulkan {
             VmaAllocationCreateFlags allocationFlags, VkBuffer &buffer, VmaAllocation &allocation, const char *debugName
         ) const;
 
-        void CopyBufferToImage(
-            const VkBuffer &buffer,
-            const VkImage &image,
-            uint32_t width,
-            uint32_t height
-        ) const;
-
         void CreateGraphicsPipeline();
 
         void CreateDescriptorSetLayout();
+
+        [[nodiscard]] VkRenderPass CreateGraphicsRenderPass(VkImageLayout finalColorLayout) const;
 
         void CreateMainRenderPass();
 

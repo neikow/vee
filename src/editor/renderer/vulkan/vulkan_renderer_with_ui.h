@@ -14,13 +14,16 @@ namespace Vulkan {
         VkBuffer buffer;
         VmaAllocation allocation;
         bool isPending;
+        glm::ivec2 pos;
         uint32_t frameSubmitted;
+        VkFence fence = VK_NULL_HANDLE;
     };
 
     class RendererWithUi final : public Renderer {
         VkDescriptorPool m_ImguiDescriptorPool = VK_NULL_HANDLE;
 
         VkExtent2D m_ViewportExtent = {};
+        VkRenderPass m_ViewportRenderPass = VK_NULL_HANDLE;
         VkImage m_ViewportImage = VK_NULL_HANDLE;
         VmaAllocation m_ViewportAllocation = VK_NULL_HANDLE;
         VkImageView m_ViewportImageView = VK_NULL_HANDLE;
@@ -56,9 +59,13 @@ namespace Vulkan {
 
         [[nodiscard]] bool IsPickingRequestPending() const;
 
+        void ExecutePickingPass(const VkCommandBuffer &cmd) const;
+
+        void RecordPickingCopy(const VkCommandBuffer &cmd) const;
+
         void UpdatePickingResult();
 
-        void Draw() override;
+        void BuildRenderGraph() override;
 
         [[nodiscard]] VkDescriptorSet GetViewportDescriptorSet() const;
 
@@ -73,6 +80,8 @@ namespace Vulkan {
 
         void InitImgui();
 
+        void CreateViewportRenderPass();
+
         void CreateGraphicsResources() override;
 
         void CreateViewportResources();
@@ -83,7 +92,7 @@ namespace Vulkan {
 
         void CreatePickingPipeline();
 
-        void RenderToScreen(const VkCommandBuffer &cmd) override;
+        void RenderUI(const VkCommandBuffer &cmd) const;
 
         void CreatePickingResources();
 

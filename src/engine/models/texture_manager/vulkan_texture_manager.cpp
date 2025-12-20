@@ -53,8 +53,10 @@ namespace Vulkan {
     void TextureManager::GraphicMemoryCleanup() {
         for (auto &info: m_TextureCatalog | std::views::values) {
             const auto renderer = dynamic_cast<Renderer *>(m_Renderer);
+            const auto tracker = renderer->GetResourceTracker();
 
             if (info.image != VK_NULL_HANDLE) {
+                tracker->UnregisterImage(info.image);
                 renderer->GetDevice()->DestroyImageView(info.imageView);
                 renderer->GetDevice()->DestroyImage(info.image, info.allocation);
                 info.image = VK_NULL_HANDLE;
@@ -119,26 +121,43 @@ namespace Vulkan {
             ("Texture" + std::to_string(textureId)).c_str()
         );
 
-        Utils::TransitionImageLayout(
-            renderer->GetDevice(),
+        renderer->GetResourceTracker()->RegisterImage(
+            "Texture_" + std::to_string(textureId),
             info.image,
             VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_UNDEFINED
+        );
+
+        const VkCommandBuffer &cmd = renderer->GetDevice()->BeginSingleTimeCommands(
+            renderer->GetDevice()->GetTransferCommandPool()
+        );
+
+        renderer->GetResourceTracker()->Transition(
+            cmd,
+            info.image,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
         );
-        renderer->CopyBufferToImage(
+
+        Utils::CopyBufferToImage(
+            cmd,
             stagingBuffer,
             info.image,
-            static_cast<uint32_t>(info.width),
-            static_cast<uint32_t>(info.height)
+            info.width,
+            info.height
         );
-        Utils::TransitionImageLayout(
-            renderer->GetDevice(),
+
+        renderer->GetResourceTracker()->Transition(
+            cmd,
             info.image,
-            VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         );
+
+        renderer->GetDevice()->EndSingleTimeCommands(
+            cmd,
+            renderer->GetDevice()->GetTransferQueue(),
+            renderer->GetDevice()->GetTransferCommandPool()
+        );
+
 
         info.imageView = renderer->GetDevice()->CreateImageView(
             info.image,

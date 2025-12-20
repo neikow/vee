@@ -93,6 +93,10 @@ namespace Vulkan {
         return static_cast<float>(extent.width) / static_cast<float>(extent.height);
     }
 
+    std::shared_ptr<ResourceTracker> Renderer::GetResourceTracker() {
+        return m_ResourceTracker;
+    }
+
     void Renderer::InitVulkan() {
         CreatePipelinesAndShaders();
         CreateGraphicsResources();
@@ -188,7 +192,8 @@ namespace Vulkan {
     }
 
     void Renderer::CreateMissingTexture() {
-        constexpr VkDeviceSize imageSize = 4;
+        constexpr auto missingTextureWidth = 1, missingTextureHeight = 1;
+        constexpr VkDeviceSize imageSize = 4 * missingTextureWidth * missingTextureHeight;
         VkBuffer stagingBuffer;
         VmaAllocation stagingAlloc;
 
@@ -208,8 +213,8 @@ namespace Vulkan {
 
         Utils::CreateImage(
             m_Device,
-            1,
-            1,
+            missingTextureWidth,
+            missingTextureHeight,
             VK_FORMAT_R8G8B8A8_SRGB,
             VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -219,22 +224,40 @@ namespace Vulkan {
             "Missing Texture"
         );
 
-        Utils::TransitionImageLayout(
-            m_Device,
+        m_ResourceTracker->RegisterImage(
+            "Default_Texture_Image",
             m_DefaultTextureImage,
             VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_UNDEFINED
+        );
+
+        const VkCommandBuffer &cmd = m_Device->BeginSingleTimeCommands(
+            m_Device->GetTransferCommandPool()
+        );
+
+        m_ResourceTracker->Transition(
+            cmd,
+            m_DefaultTextureImage,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
         );
-        CopyBufferToImage(
-            stagingBuffer, m_DefaultTextureImage, 1, 1
-        );
-        Utils::TransitionImageLayout(
-            m_Device,
+
+        Utils::CopyBufferToImage(
+            cmd,
+            stagingBuffer,
             m_DefaultTextureImage,
-            VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            missingTextureWidth, missingTextureHeight
+        );
+
+        m_ResourceTracker->Transition(
+            cmd,
+            m_DefaultTextureImage,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        );
+
+        m_Device->EndSingleTimeCommands(
+            cmd,
+            m_Device->GetTransferQueue(),
+            m_Device->GetTransferCommandPool()
         );
 
         m_DefaultTextureImageView = m_Device->CreateImageView(
@@ -579,49 +602,6 @@ namespace Vulkan {
         vmaSetAllocationName(m_Device->GetAllocator(), allocation, debugName);
     }
 
-    void Renderer::CopyBufferToImage(
-        const VkBuffer &buffer,
-        const VkImage &image,
-        const uint32_t width,
-        const uint32_t height
-    ) const {
-        const VkCommandBuffer &commandBuffer = m_Device->BeginSingleTimeCommands(
-            m_Device->GetTransferCommandPool()
-        );
-
-        VkBufferImageCopy region{};
-        region.bufferOffset = 0;
-        region.bufferRowLength = 0;
-        region.bufferImageHeight = 0;
-
-        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        region.imageSubresource.mipLevel = 0;
-        region.imageSubresource.baseArrayLayer = 0;
-        region.imageSubresource.layerCount = 1;
-
-        region.imageOffset = {0, 0, 0};
-        region.imageExtent = {
-            width,
-            height,
-            1
-        };
-
-        vkCmdCopyBufferToImage(
-            commandBuffer,
-            buffer,
-            image,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            1,
-            &region
-        );
-
-        m_Device->EndSingleTimeCommands(
-            commandBuffer,
-            m_Device->GetTransferQueue(),
-            m_Device->GetTransferCommandPool()
-        );
-    }
-
     void Renderer::CreateGraphicsPipeline() {
         using namespace Shaders;
 
@@ -772,7 +752,9 @@ namespace Vulkan {
         }
     }
 
-    void Renderer::CreateMainRenderPass() {
+    VkRenderPass Renderer::CreateGraphicsRenderPass(
+        const VkImageLayout finalColorLayout
+    ) const {
         VkAttachmentDescription colorAttachment{};
 
         const auto swapChainSupport = m_Device->QuerySwapChainSupport(m_Device->GetPhysicalDevice());
@@ -788,7 +770,7 @@ namespace Vulkan {
         colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
         colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        colorAttachment.finalLayout = finalColorLayout;
 
         VkAttachmentReference colorAttachmentRef{};
         colorAttachmentRef.attachment = 0;
@@ -851,9 +833,14 @@ namespace Vulkan {
         renderPassInfo.dependencyCount = 1;
         renderPassInfo.pDependencies = &dependency;
 
-        m_MainRenderPass = m_Device->CreateRenderPass(
+        return m_Device->CreateRenderPass(
             renderPassInfo
         );
+    }
+
+    void Renderer::CreateMainRenderPass() {
+        m_MainRenderPass = CreateGraphicsRenderPass(
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
     }
 
     void Renderer::CreateSwapChain() const {
@@ -875,7 +862,9 @@ namespace Vulkan {
           ),
           m_Window(window),
           m_Device(std::make_shared<VulkanDevice>(window)),
-          m_Swapchain(std::make_shared<Swapchain>(m_Device)),
+          m_ResourceTracker(std::make_shared<ResourceTracker>()),
+          m_RenderGraph(std::make_shared<RenderGraph>(m_ResourceTracker)),
+          m_Swapchain(std::make_shared<Swapchain>(m_Device, m_ResourceTracker)),
           m_ShaderModuleCache(std::make_shared<ShaderModuleCache>(m_Device)),
           m_PipelineCache(std::make_shared<PipelineCache>()) {
     }
@@ -913,55 +902,6 @@ namespace Vulkan {
         CreateSwapChain();
     }
 
-    void Renderer::RecordDrawQueue(const VkCommandBuffer &commandBuffer) {
-        // TODO: sort draw calls by texture to minimize descriptor set changes
-
-        const auto dynamicOffset = static_cast<uint32_t>(
-            m_PaddedUniformBufferSize * m_CurrentFrameIndex
-        );
-
-        vkCmdBindDescriptorSets(
-            commandBuffer,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            m_PipelineLayout,
-            0,
-            1,
-            &m_BindlessDescriptorSet,
-            1,
-            &dynamicOffset
-        );
-
-        for (const auto &drawCall: m_DrawQueue) {
-            PushData pushData = {
-                drawCall.worldMatrix,
-                drawCall.textureId,
-                drawCall.entityId,
-            };
-
-            vkCmdPushConstants(
-                commandBuffer,
-                m_PipelineLayout,
-                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                0,
-                sizeof(PushData),
-                &pushData
-            );
-
-            const auto info = GetMeshManager()->GetMeshInfo(drawCall.meshId);
-
-            vkCmdDrawIndexed(
-                commandBuffer,
-                info.indexCount,
-                1,
-                info.indexOffset,
-                info.vertexOffset,
-                0
-            );
-        }
-
-        m_DrawQueue.clear();
-    }
-
     void Renderer::CalculatePaddedUboSize() {
         const auto minAlignment = m_Device->GetPhysicalDeviceProperties().limits.
                 minUniformBufferOffsetAlignment;
@@ -978,7 +918,7 @@ namespace Vulkan {
         const VkCommandBuffer &commandBuffer,
         const VkFramebuffer &framebuffer,
         const VkExtent2D extent
-    ) const {
+    ) {
         if (m_VertexBuffer == VK_NULL_HANDLE || m_IndexBuffer == VK_NULL_HANDLE) {
             return;
         }
@@ -1042,7 +982,6 @@ namespace Vulkan {
             nullptr
         );
 
-        // Bind Set 1: Dynamic UBO
         vkCmdBindDescriptorSets(
             commandBuffer,
             VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1054,7 +993,6 @@ namespace Vulkan {
             &dynamicOffset
         );
 
-        // 4. Execute Draw Queue
         for (const auto &drawCall: m_DrawQueue) {
             PushData pushData = {
                 drawCall.worldMatrix,
@@ -1081,66 +1019,89 @@ namespace Vulkan {
         }
 
         vkCmdEndRenderPass(commandBuffer);
+
+        m_DrawQueue.clear();
     }
 
-    void Renderer::RenderToScreen(const VkCommandBuffer &cmd) {
-        RenderScene(
-            cmd,
-            m_Swapchain->GetFramebuffer(m_ImageIndex),
-            m_Swapchain->GetExtent()
+    void Renderer::BuildRenderGraph() {
+        m_RenderGraph->AddPass({
+            .name = "ScenePass",
+            .execute = [this](const VkCommandBuffer &cmd) {
+                RenderScene(
+                    cmd,
+                    m_Swapchain->GetFramebuffer(m_ImageIndex),
+                    m_Swapchain->GetExtent()
+                );
+            },
+            .usages = {
+                {
+                    m_Swapchain->GetImage(m_ImageIndex),
+                    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+                }
+            }
+        });
+    }
+
+    bool Renderer::IsReadyToDraw() {
+        vkWaitForFences(
+            m_Device->GetLogicalDevice(),
+            1,
+            &m_InFlightFences[m_CurrentFrameIndex],
+            VK_TRUE,
+            UINT64_MAX
         );
-    }
 
-    void Renderer::Draw() {
-        m_ResourceDeletionQueue->Flush(m_TotalFramesRendered);
+        const auto result = vkAcquireNextImageKHR(
+            m_Device->GetLogicalDevice(),
+            m_Swapchain->GetHandle(),
+            UINT64_MAX,
+            m_ImageAvailableSemaphores[m_CurrentFrameIndex],
+            VK_NULL_HANDLE,
+            &m_ImageIndex
+        );
 
-        vkWaitForFences(m_Device->GetLogicalDevice(), 1, &m_InFlightFences[m_CurrentFrameIndex], VK_TRUE, UINT64_MAX);
-
-        VkResult result = vkAcquireNextImageKHR(
-            m_Device->GetLogicalDevice(), m_Swapchain->GetHandle(), UINT64_MAX,
-            m_ImageAvailableSemaphores[m_CurrentFrameIndex], VK_NULL_HANDLE, &m_ImageIndex
+        m_ResourceTracker->SetState(
+            m_Swapchain->GetImage(m_ImageIndex),
+            m_TotalFramesRendered < m_Swapchain->GetImageCount()
+                ? VK_IMAGE_LAYOUT_UNDEFINED
+                : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            0,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
         );
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
             RecreateSwapChain();
-            return;
+            return false;
         }
         if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
             throw std::runtime_error("failed to acquire swap chain image!");
         }
 
         vkResetFences(m_Device->GetLogicalDevice(), 1, &m_InFlightFences[m_CurrentFrameIndex]);
+        return true;
+    }
 
-        const VkCommandBuffer &cmd = m_CommandBuffers[m_CurrentFrameIndex];
-        vkResetCommandBuffer(cmd, 0);
-
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-        if (vkBeginCommandBuffer(cmd, &beginInfo) != VK_SUCCESS) {
-            throw std::runtime_error("failed to begin recording command buffer!");
-        }
-
-        RenderToScreen(cmd);
-
-        if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
-            throw std::runtime_error("failed to record command buffer!");
-        }
-
-        m_DrawQueue.clear();
-
+    void Renderer::Present(const VkCommandBuffer &cmd) {
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-        const VkSemaphore waitSemaphores[] = {m_ImageAvailableSemaphores[m_CurrentFrameIndex]};
-        constexpr VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+        const VkSemaphore waitSemaphores[] = {
+            m_ImageAvailableSemaphores[m_CurrentFrameIndex]
+        };
+        constexpr VkPipelineStageFlags waitStages[] = {
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+        };
         submitInfo.waitSemaphoreCount = 1;
         submitInfo.pWaitSemaphores = waitSemaphores;
         submitInfo.pWaitDstStageMask = waitStages;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &cmd;
 
-        const VkSemaphore signalSemaphores[] = {m_RenderFinishedSemaphores[m_ImageIndex]};
+        const VkSemaphore signalSemaphores[] = {
+            m_RenderFinishedSemaphores[m_ImageIndex]
+        };
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
@@ -1159,12 +1120,18 @@ namespace Vulkan {
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         presentInfo.waitSemaphoreCount = 1;
         presentInfo.pWaitSemaphores = signalSemaphores;
-        const VkSwapchainKHR swapChains[] = {m_Swapchain->GetHandle()};
+        const VkSwapchainKHR swapChains[] = {
+            m_Swapchain->GetHandle()
+        };
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = swapChains;
         presentInfo.pImageIndices = &m_ImageIndex;
 
-        result = vkQueuePresentKHR(m_Device->GetPresentQueue(), &presentInfo);
+
+        const auto result = vkQueuePresentKHR(
+            m_Device->GetPresentQueue(),
+            &presentInfo
+        );
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_FramebufferResized) {
             RecreateSwapChain();
@@ -1172,6 +1139,30 @@ namespace Vulkan {
         } else if (result != VK_SUCCESS) {
             throw std::runtime_error("failed to present swap chain image!");
         }
+    }
+
+    void Renderer::Draw() {
+        m_ResourceDeletionQueue->Flush(m_TotalFramesRendered);
+
+        if (!IsReadyToDraw()) return;
+
+        const VkCommandBuffer &cmd = m_CommandBuffers[m_CurrentFrameIndex];
+        vkResetCommandBuffer(cmd, 0);
+
+        constexpr VkCommandBufferBeginInfo beginInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        if (vkBeginCommandBuffer(cmd, &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("failed to begin recording command buffer!");
+        }
+
+        BuildRenderGraph();
+
+        m_RenderGraph->Execute(cmd);
+
+        if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
+            throw std::runtime_error("failed to record command buffer!");
+        }
+
+        Present(cmd);
 
         m_CurrentFrameIndex = (m_CurrentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
         m_TotalFramesRendered++;

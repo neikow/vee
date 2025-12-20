@@ -57,6 +57,12 @@ Goal: Formalize how different passes (Shadows, Picking, UI, Main) talk to each o
     - [x] Render the picking ID buffer in the background and read the result from the previous frame to avoid
       vkDeviceWaitIdle.
 
+## Phase 4.1: Fix bugs
+
+Goal: Address known issues in the current implementation.
+
+- [ ] Fix image layout mismatch warnings
+
 ## Phase 5: Advanced Features & Optimization
 
 Goal: Polish and performance.

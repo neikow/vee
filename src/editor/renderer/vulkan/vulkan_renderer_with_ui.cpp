@@ -50,17 +50,6 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
     if (m_PickingRequest.isPending) return;
     if (normX < 0.0 || normX > 1.0 || normY < 0.0 || normY > 1.0) return;
 
-    if (m_PickingRequest.fence == VK_NULL_HANDLE) {
-        VkFenceCreateInfo fenceInfo{.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-        vkCreateFence(
-            m_Device->GetLogicalDevice(),
-            &fenceInfo,
-            nullptr,
-            &m_PickingRequest.fence
-        );
-    }
-
     if (m_PickingRequest.buffer == VK_NULL_HANDLE) {
         CreateBuffer(
             sizeof(uint32_t),
@@ -72,16 +61,11 @@ void Vulkan::RendererWithUi::RequestEntityIDAt(const double normX, const double 
         );
     }
 
-    vkResetFences(
-        m_Device->GetLogicalDevice(),
-        1,
-        &m_PickingRequest.fence
-    );
-
     m_PickingRequest.pos = {
         static_cast<int32_t>(normX * m_ViewportExtent.width),
         static_cast<int32_t>(normY * m_ViewportExtent.height)
     };
+    m_PickingRequest.fence = m_InFlightFences[m_CurrentFrameIndex];
     m_PickingRequest.isPending = true;
     m_PickingRequest.frameSubmitted = m_TotalFramesRendered;
 }
@@ -205,7 +189,10 @@ void Vulkan::RendererWithUi::RecordPickingCopy(const VkCommandBuffer &cmd) const
 void Vulkan::RendererWithUi::UpdatePickingResult() {
     if (!m_PickingRequest.isPending) return;
 
-    const VkResult result = vkGetFenceStatus(m_Device->GetLogicalDevice(), m_PickingRequest.fence);
+    const VkResult result = vkGetFenceStatus(
+        m_Device->GetLogicalDevice(),
+        m_PickingRequest.fence
+    );
 
     if (result == VK_SUCCESS) {
         const auto allocInfo = m_Device->GetAllocationInfo(m_PickingRequest.allocation);
@@ -236,7 +223,9 @@ void Vulkan::RendererWithUi::BuildRenderGraph() {
 
         m_RenderGraph->AddPass({
             .name = "PickingCopy",
-            .execute = [this](const VkCommandBuffer &cmd) { RecordPickingCopy(cmd); },
+            .execute = [this](const VkCommandBuffer &cmd) {
+                RecordPickingCopy(cmd);
+            },
             .usages = {
                 {
                     m_PickingImage,

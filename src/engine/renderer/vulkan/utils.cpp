@@ -220,16 +220,6 @@ namespace Vulkan::Utils {
         imageInfo.usage = usage;
         imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
-        if (vkCreateImage(
-                device->GetLogicalDevice(),
-                &imageInfo,
-                nullptr,
-                &image
-            ) != VK_SUCCESS
-        ) {
-            throw std::runtime_error("failed to create image!");
-        }
-
         const VmaAllocationCreateInfo allocInfo = {.usage = vmaUsage};
 
         vmaCreateImage(device->GetAllocator(), &imageInfo, &allocInfo, &image, &allocation, nullptr);

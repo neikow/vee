@@ -47,14 +47,14 @@ Goal: Remove the 2048 texture limit and stop updating Descriptor Sets every fram
 
 Goal: Formalize how different passes (Shadows, Picking, UI, Main) talk to each other.
 
-- [ ] Define a RenderPass Interface
-    - [ ] Create a base class where each pass defines its own Execute(VkCommandBuffer) method.
-- [ ] Implement Synchronization Automated Logic
-    - [ ] Create a system that automatically inserts VkImageMemoryBarrier based on which pass reads/writes to which
+- [x] Create a structure that defines inputs, outputs, and dependencies for each render pass.
+- [x] Implement Synchronization Automated Logic
+    - [x] Create a system that automatically inserts VkImageMemoryBarrier based on which pass reads/writes to which
       texture.
-- [ ] Async Picking
-    - [ ] Move the GetEntityIDAt logic to be non-blocking.
-    - [ ] Render the picking ID buffer in the background and read the result from the previous frame to avoid
+- [x] Build a Render Graph
+- [x] Async Picking
+    - [x] Move the GetEntityIDAt logic to be non-blocking.
+    - [x] Render the picking ID buffer in the background and read the result from the previous frame to avoid
       vkDeviceWaitIdle.
 
 ## Phase 5: Advanced Features & Optimization

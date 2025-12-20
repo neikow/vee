@@ -24,24 +24,24 @@ Goal: Break the monolithic Renderer class into smaller, specialized units.
 - [x] Create a VulkanDevice Class
     - [x] Move Instance, Physical Device, Logical Device, and Queue management here.
 
-- [ ] Create a Shader & Pipeline Cache
+- [x] Create a Shader & Pipeline Cache
     - [x] Implement a system that loads SPIR-V from files.
     - [x] Create a hash for Pipeline states so you don't recreate identical pipelines.
     - [x] Encapsulate the Swapchain
     - [x] Move VkSwapchainKHR, ImageViews, and Framebuffers into a VulkanSwapchain class.
-    - [ ] Simplify the RecreateSwapChain logic to be a single method call.
+    - [x] Simplify the RecreateSwapChain logic to be a single method call.
 
 ## Phase 3: The "Bindless" Revolution
 
 Goal: Remove the 2048 texture limit and stop updating Descriptor Sets every frame.
 
-- [ ] Implement Bindless Textures
-    - [ ] Update your DescriptorSetLayout to use VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT.
-    - [ ] Increase your texture array size to the physical device limit (often 100k+).
-    - [ ] Pass the textureId solely through Push Constants; stop calling vkUpdateDescriptorSets per texture load.
-- [ ] Global UBO Management
-    - [ ] Use a single "Global Data" UBO for View/Projection matrices.
-    - [ ] Use "Dynamic Offsets" or a large buffer to store per-object data if it exceeds Push Constant limits.
+- [x] Implement Bindless Textures
+    - [x] Update your DescriptorSetLayout to use VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT.
+    - [x] Increase your texture array size to the physical device limit (often 100k+).
+    - [x] Pass the textureId solely through Push Constants; stop calling vkUpdateDescriptorSets per texture load.
+- [x] Global UBO Management
+    - [x] Use a single "Global Data" UBO for View/Projection matrices.
+    - [x] Use "Dynamic Offsets" or a large buffer to store per-object data if it exceeds Push Constant limits.
 
 ## Phase 4: Render Graph & Multi-Pass
 

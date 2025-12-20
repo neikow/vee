@@ -35,7 +35,9 @@ constexpr uint32_t WIDTH = 1200;
 constexpr uint32_t HEIGHT = 600;
 
 int main() {
-    const auto g_Renderer = std::make_shared<Vulkan::Renderer>();
+    const auto g_Window = std::make_shared<Window>(WIDTH, HEIGHT, "Engine Window");
+
+    const auto g_Renderer = std::make_shared<Vulkan::Renderer>(g_Window);
 
     const auto g_Engine = std::make_shared<Engine>(std::static_pointer_cast<AbstractRenderer>(g_Renderer));
 
@@ -58,7 +60,7 @@ int main() {
 
         g_Engine->LoadScene("../.editor_data/scenes/scene1.scene");
 
-        g_Engine->Initialize(WIDTH, HEIGHT, "Engine", VK_MAKE_VERSION(1, 0, 0));
+        g_Engine->Initialize("Engine", VK_MAKE_VERSION(1, 0, 0));
 
         Signature signature;
         signature.set(ComponentTypeHelper<CameraComponent>::ID);
@@ -73,7 +75,7 @@ int main() {
 
         auto startTime = std::chrono::high_resolution_clock::now();
 
-        while (!g_Engine->ShouldQuit() && !g_Engine->GetRenderer()->ShouldClose()) {
+        while (!g_Engine->ShouldQuit() && !g_Window->ShouldClose()) {
             const auto deltaTime = std::chrono::duration<float>(
                 std::chrono::high_resolution_clock::now() - startTime
             ).count();

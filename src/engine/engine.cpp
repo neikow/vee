@@ -4,8 +4,8 @@
 #include "entities/system/movement_system.h"
 #include "serialization/scene_serializer.h"
 
-void Engine::Initialize(const int width, const int height, const std::string &appName, const uint32_t version) const {
-    m_Renderer->Initialize(width, height, appName, version);
+void Engine::Initialize(const std::string &appName, const uint32_t version) const {
+    m_Renderer->Initialize(appName, version);
 }
 
 void Engine::UpdateSystems(const float deltaTime) const {

@@ -16,6 +16,11 @@ struct PushData {
 using RendererInitTask = std::function<void()>;
 using RendererCleanupTask = std::function<void()>;
 
+struct MemoryUsage {
+    float availableMemoryMB = 0.0f;
+    float usedMemoryMB = 0.0f;
+};
+
 class AbstractRenderer {
     std::shared_ptr<MeshManager> m_MeshManager;
     std::shared_ptr<Vulkan::TextureManager> m_TextureManager;
@@ -36,11 +41,16 @@ public:
         return m_TextureManager;
     }
 
-    virtual void Initialize(int width, int height, const std::string &appName, uint32_t version) = 0;
+    virtual void Initialize(
+        const std::string &appName,
+        uint32_t version
+    ) = 0;
 
     [[nodiscard]] bool Initialized() const {
         return m_Initialized;
     }
+
+    virtual MemoryUsage GetMemoryUsage() = 0;
 
     virtual void Draw() = 0;
 
@@ -59,9 +69,7 @@ public:
 
     virtual void Reset() = 0;
 
-    virtual bool ShouldClose() = 0;
-
-    virtual void WaitIdle() = 0;
+    virtual void WaitIdle() const = 0;
 
     virtual float GetAspectRatio() = 0;
 
@@ -71,8 +79,6 @@ public:
 
     void EnqueuePostInitTask(const RendererInitTask &task);
 
-    void EnqueueCleanupTask(const RendererCleanupTask &task);
-
     virtual ~AbstractRenderer() = default;
 
     virtual void PrepareForRendering() {
@@ -80,8 +86,6 @@ public:
 
 protected:
     void ExecuteInitTasks();
-
-    void ExecuteCleanupTasks();
 };
 
 

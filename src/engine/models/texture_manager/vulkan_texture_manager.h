@@ -2,6 +2,7 @@
 #define GAME_ENGINE_VULKAN_TEXTURE_MANAGER_H
 #include <map>
 #include <string>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
 #include "abstract_texture_manager.h"
@@ -14,7 +15,7 @@ namespace Vulkan {
 
     struct TextureInfo final : ITextureInfo {
         VkImage image = VK_NULL_HANDLE;
-        VkDeviceMemory imageMemory = VK_NULL_HANDLE;
+        VmaAllocation allocation = VK_NULL_HANDLE;
         VkImageView imageView = VK_NULL_HANDLE;
 
         stbi_uc *pixels = nullptr;

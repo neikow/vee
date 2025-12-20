@@ -3,8 +3,10 @@
 #include <ranges>
 
 #include "../../renderer/vulkan/vulkan_renderer.h"
+#include "../../renderer/vulkan/vulkan_device.h"
 
 #include "stb_image.h"
+#include "../../renderer/vulkan/utils.h"
 
 namespace Vulkan {
     TextureInfo ParseTexture(const std::string &texturePath) {
@@ -49,6 +51,22 @@ namespace Vulkan {
     }
 
     void TextureManager::GraphicMemoryCleanup() {
+        for (auto &info: m_TextureCatalog | std::views::values) {
+            const auto renderer = dynamic_cast<Renderer *>(m_Renderer);
+            const auto tracker = renderer->GetResourceTracker();
+
+            if (info.image != VK_NULL_HANDLE) {
+                tracker->UnregisterImage(info.image);
+                renderer->GetDevice()->DestroyImageView(info.imageView);
+                renderer->GetDevice()->DestroyImage(info.image, info.allocation);
+                info.image = VK_NULL_HANDLE;
+            }
+
+            if (info.pixels) {
+                stbi_image_free(info.pixels);
+                info.pixels = nullptr;
+            }
+        }
         m_TextureCatalog.clear();
     }
 
@@ -66,64 +84,92 @@ namespace Vulkan {
         }
 
         if (info.image != VK_NULL_HANDLE) {
-            vkDestroyImageView(renderer->m_Device, info.imageView, nullptr);
-            vkDestroyImage(renderer->m_Device, info.image, nullptr);
-            vkFreeMemory(renderer->m_Device, info.imageMemory, nullptr);
+            renderer->GetDevice()->DestroyImageView(info.imageView);
+            renderer->GetDevice()->DestroyImage(info.image, info.allocation);
             info.image = VK_NULL_HANDLE;
         }
 
         VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
+        VmaAllocation stagingAlloc;
 
         renderer->CreateBuffer(
             info.imageSize,
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stagingBuffer,
-            stagingBufferMemory,
-            {}
+            VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            stagingBuffer, stagingAlloc,
+            (
+                "Texture" + std::to_string(textureId) + "Staging Buffer"
+            ).c_str()
         );
 
         void *data;
-        vkMapMemory(renderer->m_Device, stagingBufferMemory, 0, info.imageSize, 0, &data);
+        renderer->GetDevice()->MapMemory(stagingAlloc, &data);
         memcpy(data, info.pixels, info.imageSize);
-        vkUnmapMemory(renderer->m_Device, stagingBufferMemory);
+        renderer->GetDevice()->UnmapMemory(stagingAlloc);
 
-        renderer->CreateImage(
-            info.width, info.height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+        Utils::CreateImage(
+            renderer->GetDevice(),
+            info.width,
+            info.height,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, info.image, info.imageMemory, {}
+            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+            info.image,
+            info.allocation,
+            ("Texture" + std::to_string(textureId)).c_str()
         );
 
-        renderer->TransitionImageLayout(
-            info.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+        renderer->GetResourceTracker()->RegisterImage(
+            "Texture_" + std::to_string(textureId),
+            info.image,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_LAYOUT_UNDEFINED
         );
-        renderer->CopyBufferToImage(
-            stagingBuffer, info.image, static_cast<uint32_t>(info.width), static_cast<uint32_t>(info.height)
+
+        const VkCommandBuffer &cmd = renderer->GetDevice()->BeginSingleTimeCommands(
+            renderer->GetDevice()->GetTransferCommandPool()
         );
-        renderer->TransitionImageLayout(
-            info.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+
+        renderer->GetResourceTracker()->Transition(
+            cmd,
+            info.image,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+        );
+
+        Utils::CopyBufferToImage(
+            cmd,
+            stagingBuffer,
+            info.image,
+            info.width,
+            info.height
+        );
+
+        renderer->GetResourceTracker()->Transition(
+            cmd,
+            info.image,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         );
 
-        info.imageView = renderer->CreateImageView(
-            info.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT
+        renderer->GetDevice()->EndSingleTimeCommands(
+            cmd,
+            renderer->GetDevice()->GetTransferQueue(),
+            renderer->GetDevice()->GetTransferCommandPool()
         );
 
-        vkDestroyBuffer(renderer->m_Device, stagingBuffer, nullptr);
-        vkFreeMemory(renderer->m_Device, stagingBufferMemory, nullptr);
 
+        info.imageView = renderer->GetDevice()->CreateImageView(
+            info.image,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_ASPECT_COLOR_BIT
+        );
+
+        renderer->GetDevice()->DestroyBuffer(stagingBuffer, stagingAlloc);
         renderer->UpdateTextureDescriptor(textureId);
 
         stbi_image_free(info.pixels);
         info.pixels = nullptr;
-
-        renderer->EnqueueCleanupTask([this, renderer, textureId] {
-            const auto textureInfo = m_TextureCatalog[textureId];
-            vkDestroyImage(renderer->m_Device, textureInfo.image, nullptr);
-            vkFreeMemory(renderer->m_Device, textureInfo.imageMemory, nullptr);
-            vkDestroyImageView(renderer->m_Device, textureInfo.imageView, nullptr);
-        });
     }
 
     VkImageView TextureManager::GetImageView(const TextureId textureId) const {

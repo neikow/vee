@@ -8,11 +8,15 @@
 
 #include "consts.h"
 #include "types.h"
+#include "vulkan_device.h"
 
 VkBool32 DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
                        VkDebugUtilsMessageTypeFlagsEXT messageType,
                        const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
                        void *pUserData) {
+    if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+        void;
+    }
     std::cerr << "Validation layer: " << pCallbackData->pMessage << std::endl;
 
     return VK_FALSE;
@@ -87,8 +91,16 @@ namespace Vulkan::Utils {
         }
     }
 
-    bool HasStencilComponent(VkFormat format) {
-        return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+    bool HasStencilComponent(const VkFormat format) {
+        return format == VK_FORMAT_D32_SFLOAT_S8_UINT
+               || format == VK_FORMAT_D24_UNORM_S8_UINT;
+    }
+
+    bool IsDepthFormat(const VkFormat format) {
+        return format == VK_FORMAT_D16_UNORM
+               || format == VK_FORMAT_D32_SFLOAT
+               || format == VK_FORMAT_D24_UNORM_S8_UINT
+               || format == VK_FORMAT_D32_SFLOAT_S8_UINT;
     }
 
     VkDebugUtilsMessengerCreateInfoEXT GetDebugMessageCreateInfo(
@@ -111,7 +123,7 @@ namespace Vulkan::Utils {
         std::vector<VkExtensionProperties> availableExtensions(extensionCount);
         vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, availableExtensions.data());
 
-        std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+        std::set<std::string> requiredExtensions(DEVICE_EXTENSIONS.begin(), DEVICE_EXTENSIONS.end());
 
         for (const auto &extension: availableExtensions) {
             requiredExtensions.erase(extension.extensionName);
@@ -144,27 +156,21 @@ namespace Vulkan::Utils {
     }
 
     VkExtent2D ChooseSwapExtent(
-        GLFWwindow *window,
+        const VkExtent2D &targetExtent,
         const VkSurfaceCapabilitiesKHR &capabilities
     ) {
         if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
             return capabilities.currentExtent;
         }
 
-        int width, height;
-        glfwGetFramebufferSize(window, &width, &height);
-
-        VkExtent2D actualExtent = {
-            static_cast<uint32_t>(width),
-            static_cast<uint32_t>(height)
+        const VkExtent2D extent{
+            .width = std::clamp(targetExtent.width, capabilities.minImageExtent.width,
+                                capabilities.maxImageExtent.width),
+            .height = std::clamp(targetExtent.height, capabilities.minImageExtent.height,
+                                 capabilities.maxImageExtent.height)
         };
 
-        actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width,
-                                        capabilities.maxImageExtent.width);
-        actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height,
-                                         capabilities.maxImageExtent.height);
-
-        return actualExtent;
+        return extent;
     }
 
     VkFormat FindDepthFormat(
@@ -178,8 +184,11 @@ namespace Vulkan::Utils {
         );
     }
 
-    uint32_t FindMemoryType(const VkPhysicalDevice physicalDevice, const uint32_t typeFilter,
-                            const VkMemoryPropertyFlags properties) {
+    uint32_t FindMemoryType(
+        const VkPhysicalDevice &physicalDevice,
+        const uint32_t typeFilter,
+        const VkMemoryPropertyFlags properties
+    ) {
         VkPhysicalDeviceMemoryProperties memProperties;
         vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
@@ -193,9 +202,70 @@ namespace Vulkan::Utils {
         throw std::runtime_error("failed to find suitable memory type!");
     }
 
-    void ReadImagePixel(
-        VkDevice device, VkPhysicalDevice physicalDevice, VkQueue queue, VkCommandPool commandPool,
-        VkImage image, uint32_t width, uint32_t height, uint32_t posX, uint32_t posY) {
+    void CreateImage(
+        const std::shared_ptr<VulkanDevice> &device,
+        const uint32_t width,
+        const uint32_t height,
+        const VkFormat format,
+        const VkImageTiling tiling,
+        const VkImageUsageFlags usage,
+        const VmaMemoryUsage vmaUsage,
+        VkImage &image,
+        VmaAllocation &allocation,
+        const char *debugName
+    ) {
+        VkImageCreateInfo imageInfo{};
+        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imageInfo.imageType = VK_IMAGE_TYPE_2D;
+        imageInfo.extent.width = width;
+        imageInfo.extent.height = height;
+        imageInfo.extent.depth = 1;
+        imageInfo.mipLevels = 1;
+        imageInfo.arrayLayers = 1;
+        imageInfo.format = format;
+        imageInfo.tiling = tiling;
+        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageInfo.usage = usage;
+        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+        const VmaAllocationCreateInfo allocInfo = {.usage = vmaUsage};
+
+        vmaCreateImage(device->GetAllocator(), &imageInfo, &allocInfo, &image, &allocation, nullptr);
+        vmaSetAllocationName(device->GetAllocator(), allocation, debugName);
+    }
+
+    void CopyBufferToImage(
+        const VkCommandBuffer &cmd,
+        const VkBuffer &buffer,
+        const VkImage &image,
+        const uint32_t width,
+        const uint32_t height
+    ) {
+        VkBufferImageCopy region{};
+        region.bufferOffset = 0;
+        region.bufferRowLength = 0;
+        region.bufferImageHeight = 0;
+
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = 0;
+        region.imageSubresource.layerCount = 1;
+
+        region.imageOffset = {0, 0, 0};
+        region.imageExtent = {
+            width,
+            height,
+            1
+        };
+
+        vkCmdCopyBufferToImage(
+            cmd,
+            buffer,
+            image,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &region
+        );
     }
 
     VkFormat FindSupportedFormat(
@@ -218,4 +288,29 @@ namespace Vulkan::Utils {
 
         throw std::runtime_error("failed to find supported format!");
     }
+
+    // void TransitionImageLayout(
+    //     const std::shared_ptr<VulkanDevice> &device,
+    //     const VkImage &image,
+    //     const VkFormat format,
+    //     const VkImageLayout oldLayout,
+    //     const VkImageLayout newLayout
+    // ) {
+    //     const auto cmd = device->BeginSingleTimeCommands(
+    //         device->GetTransferCommandPool()
+    //     );
+    //
+    //     SyncManager::TransitionResource(
+    //         cmd,
+    //         image,
+    //         format,
+    //         oldLayout,
+    //         newLayout
+    //     );
+    //
+    //     device->EndSingleTimeCommands(
+    //         cmd, device->GetTransferQueue(),
+    //         device->GetTransferCommandPool()
+    //     );
+    // }
 }

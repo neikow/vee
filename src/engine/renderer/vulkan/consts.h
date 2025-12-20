@@ -14,11 +14,11 @@
 #define ENABLE_VALIDATION_LAYERS true
 #endif
 
-const std::vector ACTIVE_VALIDATION_LAYERS = {
+constexpr std::array ACTIVE_VALIDATION_LAYERS = {
     "VK_LAYER_KHRONOS_validation"
 };
 
-const std::vector deviceExtensions{
+constexpr std::array DEVICE_EXTENSIONS{
     VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };

@@ -2,10 +2,15 @@
 #define GAME_ENGINE_UTILS_H
 #include <iostream>
 #include <vector>
+#include <vk_mem_alloc.h>
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
 #include "../../entities/components_system/component_array.h"
+
+namespace Vulkan {
+    class VulkanDevice;
+}
 
 namespace Vulkan::Utils {
     bool CheckValidationLayerSupport();
@@ -28,6 +33,8 @@ namespace Vulkan::Utils {
 
     bool HasStencilComponent(VkFormat format);
 
+    bool IsDepthFormat(VkFormat format);
+
     VkDebugUtilsMessengerCreateInfoEXT GetDebugMessageCreateInfo(
         VkDebugUtilsMessageSeverityFlagsEXT messageSeverity,
         VkDebugUtilsMessageTypeFlagsEXT messageType
@@ -39,7 +46,7 @@ namespace Vulkan::Utils {
 
     VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
 
-    VkExtent2D ChooseSwapExtent(GLFWwindow *window, const VkSurfaceCapabilitiesKHR &capabilities);
+    VkExtent2D ChooseSwapExtent(const VkExtent2D &targetExtent, const VkSurfaceCapabilitiesKHR &capabilities);
 
     VkFormat FindSupportedFormat(
         const VkPhysicalDevice &physicalDevice,
@@ -53,14 +60,39 @@ namespace Vulkan::Utils {
     );
 
     uint32_t FindMemoryType(
-        VkPhysicalDevice physicalDevice,
+        const VkPhysicalDevice &physicalDevice,
         uint32_t typeFilter,
         VkMemoryPropertyFlags properties
     );
 
-    void ReadImagePixel(VkDevice device, VkPhysicalDevice physicalDevice, VkQueue queue,
-                        VkCommandPool commandPool, VkImage image, uint32_t width,
-                        uint32_t height, uint32_t posX, uint32_t posY, Entities::EntityID entityId);
+    void CreateImage(
+        const std::shared_ptr<VulkanDevice> &device,
+        uint32_t width,
+        uint32_t height,
+        VkFormat format,
+        VkImageTiling tiling,
+        VkImageUsageFlags usage,
+        VmaMemoryUsage vmaUsage,
+        VkImage &image,
+        VmaAllocation &allocation,
+        const char *debugName
+    );
+
+    void CopyBufferToImage(
+        const VkCommandBuffer &cmd,
+        const VkBuffer &buffer,
+        const VkImage &image,
+        uint32_t width,
+        uint32_t height
+    );
+
+    // void TransitionImageLayout(
+    //     const std::shared_ptr<VulkanDevice> &device,
+    //     const VkImage &image,
+    //     VkFormat format,
+    //     VkImageLayout oldLayout,
+    //     VkImageLayout newLayout
+    // );
 }
 
 #endif //GAME_ENGINE_UTILS_H

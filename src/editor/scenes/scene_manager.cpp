@@ -64,11 +64,11 @@ std::vector<SceneData> SceneManager::ListScenes() {
     return {};
 }
 
-void SceneManager::LoadScene(const std::string &path) {
+void SceneManager::LoadScene(const std::string &path) const {
     m_Engine->LoadScene(path);
 }
 
-void SceneManager::SaveScene(const std::string &path, const std::string &sceneName) {
+void SceneManager::SaveScene(const std::string &path, const std::string &sceneName) const {
     const auto scene = m_Engine->GetScene();
 
     if (scene == nullptr) {

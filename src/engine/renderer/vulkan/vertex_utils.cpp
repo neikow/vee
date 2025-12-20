@@ -12,8 +12,9 @@ namespace Vulkan {
         return bindingDescription;
     }
 
-    std::array<VkVertexInputAttributeDescription, 3> VertexUtils::GetAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+    std::vector<VkVertexInputAttributeDescription> VertexUtils::GetAttributeDescriptions() {
+        std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
+        attributeDescriptions.resize(3);
 
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
@@ -34,8 +35,9 @@ namespace Vulkan {
         return attributeDescriptions;
     }
 
-    std::array<VkVertexInputAttributeDescription, 1> VertexUtils::GetPickingAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions{};
+    std::vector<VkVertexInputAttributeDescription> VertexUtils::GetPositionAttributeDescriptions() {
+        std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
+        attributeDescriptions.resize(1);
 
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;

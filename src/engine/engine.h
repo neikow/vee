@@ -27,7 +27,7 @@ public:
         : m_Renderer(renderer) {
     }
 
-    void Initialize(int width, int height, const std::string &appName, uint32_t version) const;
+    void Initialize(const std::string &appName, uint32_t version) const;
 
     void UpdateSystems(float deltaTime) const;
 

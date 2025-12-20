@@ -20,12 +20,13 @@
 #include "ui/interface/editor_console.h"
 #include "ui/interface/inspector.h"
 #include "ui/interface/scene_hierarchy.h"
+#include "ui/interface/statistics.h"
 #include "ui/interface/viewport.h"
 #include "ui/interface/modals/save_scene_as_modal.h"
 #include "ui/interface/modals/types.h"
 
 void VeeEditor::NewEmptyScene() {
-    m_SelectedEntity = NULL_ENTITY;
+    m_State.selectedEntity = NULL_ENTITY;
     m_SceneManager->NewEmptyScene();
     CreateEditorInternalEntities();
 }
@@ -38,11 +39,12 @@ EditorState VeeEditor::GetEditorState() const { return m_State; }
 
 EditorState &VeeEditor::GetEditorState() { return m_State; }
 
-void VeeEditor::SelectEntity(const EntityID entityID) { m_SelectedEntity = entityID; }
+void VeeEditor::SelectEntity(const EntityID entityID) { m_State.selectedEntity = entityID; }
 
-void VeeEditor::HandleEntitySelectionWithinViewport(const double normX, const double normY) {
+void VeeEditor::RequestEntitySelectionWithinViewport(const double normX, const double normY) {
     const auto renderer = std::static_pointer_cast<Vulkan::RendererWithUi>(m_Engine->GetRenderer());
-    m_SelectedEntity = renderer->GetEntityIDAt(normX, normY);
+    renderer->RequestEntityIDAt(normX, normY);
+    m_State.isWaitingForEntitySelection = true;
 }
 
 void VeeEditor::DrawModals() const {
@@ -65,6 +67,7 @@ void VeeEditor::DrawUI() {
     AssetManager::Draw("Asset Manager", this);
     Console::Draw("Console", this);
     Viewport::Draw("Viewport", this);
+    Statistics::Draw("Statistics", this);
 
     DrawModals();
 }
@@ -75,13 +78,21 @@ VeeEditor::VeeEditor(const std::shared_ptr<Engine> &engine) : m_Engine(engine) {
     m_ShortcutManager = std::make_unique<ShortcutManager>();
 }
 
-void VeeEditor::Run(const int width, const int height) {
-    m_Engine->Initialize(width, height, "Editor", VK_MAKE_VERSION(1, 0, 0));
+void VeeEditor::Run() {
+    m_Engine->Initialize("Editor", VK_MAKE_VERSION(1, 0, 0));
 
     auto lastTime = std::chrono::high_resolution_clock::now();
 
-    while (!m_Engine->GetRenderer()->ShouldClose()) {
+    const auto renderer = std::static_pointer_cast<Vulkan::RendererWithUi>(
+        m_Engine->GetRenderer()
+    );
+
+    while (!renderer->GetWindow()->ShouldClose()) {
         glfwPollEvents();
+        if (m_State.isWaitingForEntitySelection && !renderer->IsPickingRequestPending()) {
+            m_State.selectedEntity = renderer->GetLastPickedID();
+            m_State.isWaitingForEntitySelection = false;
+        }
 
         const auto currentTime = std::chrono::high_resolution_clock::now();
         const float deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
@@ -153,7 +164,7 @@ void VeeEditor::LoadScene(const std::string &path) {
     CreateEditorInternalEntities();
 }
 
-EntityID VeeEditor::GetSelectedEntity() const { return m_SelectedEntity; }
+EntityID VeeEditor::GetSelectedEntity() const { return m_State.selectedEntity; }
 
 std::shared_ptr<Scene> VeeEditor::GetScene() const { return m_Engine->GetScene(); }
 
